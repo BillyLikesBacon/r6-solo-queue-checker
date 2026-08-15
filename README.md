@@ -1,7 +1,7 @@
-# Rainbow Six Match Checker — Web
+# Rainbow Six solo queue checker
 
-Browser-based version of the original desktop app. Give it a stats.cc
-player URL and up to 5 names, and it scrapes that player's recent ranked
+Browser-based R6 solo queue checker, give it a stats.cc
+player URL and up to 5 names, and it looks at that player's recent ranked
 matches to show how often each of those names shows up alongside them.
 
 ## Local setup
