@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>R6 Match Checker</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>r6-match-checker</h1>
+      <p class="subtitle">~ check how often a chud solo queues ~</p>
+    </header>
+
+    <section class="card">
+      <label class="field-label" for="player-url">Player URL</label>
+      <input type="text" id="player-url" placeholder="https://stats.cc/siege/PlayerName/uuid...">
+
+      <label class="field-label">Friends to check</label>
+      <div class="names-row">
+        <input type="text" class="name-input" placeholder="Name 1">
+        <input type="text" class="name-input" placeholder="Name 2">
+        <input type="text" class="name-input" placeholder="Name 3">
+        <input type="text" class="name-input" placeholder="Name 4">
+        <input type="text" class="name-input" placeholder="Name 5">
+      </div>
+
+      <div class="slider-header">
+        <label class="field-label" for="match-slider">Matches to check</label>
+        <span id="match-count-label" class="accent-text">50</span>
+      </div>
+      <input type="range" id="match-slider" min="1" max="500" value="50">
+      <div class="slider-labels">
+        <span>1</span><span>500</span>
+      </div>
+
+      <button id="run-button" class="run-button" type="button">Run Checker</button>
+    </section>
+
+    <section class="card status-card">
+      <div class="status-top">
+        <span id="status-label">Ready</span>
+        <span id="progress-label"></span>
+      </div>
+      <div class="progress-track"><div id="progress-bar" class="progress-fill"></div></div>
+    </section>
+
+    <section id="results"></section>
+  </div>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
