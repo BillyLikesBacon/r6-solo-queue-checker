@@ -553,7 +553,7 @@ async function scrapeMatchPages(
 
     setStatus(
       jobId,
-      `Scraping match ${matchNumber} / ${total}`
+      `checking match ${matchNumber} / ${total}`
     );
 
     const matchId =
