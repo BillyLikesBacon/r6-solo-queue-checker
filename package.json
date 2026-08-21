@@ -1,13 +1,12 @@
 {
-  "name": "rainbow-six-match-checker",
+  "name": "r6-solo-queue-checker",
   "version": "1.0.0",
   "private": true,
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "start": "node server.js"
   },
   "dependencies": {
-    "express": "^5.1.0"
+    "express": "5.2.1"
   }
 }
