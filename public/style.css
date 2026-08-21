@@ -526,3 +526,14 @@ input[type="range"]:focus-visible {
     min-height: 20px;
     margin-bottom: 10px;
 }
+
+.feedback-section {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 1000;
+}
+
+.feedback-button {
+    cursor: pointer;
+}

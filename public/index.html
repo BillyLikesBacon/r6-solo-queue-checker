@@ -1025,18 +1025,6 @@ feedbackSubmit.addEventListener(
 // =====================================
 
 function getDeviceInfo() {
-    return {
-        user_agent: navigator.userAgent,
-        platform: navigator.platform || "",
-        language: navigator.language || "",
-        screen_width: window.screen.width,
-        screen_height: window.screen.height,
-        timezone:
-            Intl.DateTimeFormat().resolvedOptions().timeZone || ""
-    };
-}
-
-function getDeviceInfo() {
 
     const ua = navigator.userAgent;
 
