@@ -1,0 +1,1258 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
+    <title>R6 Match Checker</title>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+
+        :root {
+            --bg: #0b0b0b;
+            --panel: #0b0b0b;
+            --input: #111111;
+            --border: #333333;
+            --text: #f5f5f5;
+            --muted: #888888;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            background: var(--bg);
+            color-scheme: dark;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family:
+                "IBM Plex Mono",
+                "Courier New",
+                monospace;
+            font-size: 14px;
+            line-height: 1.45;
+        }
+
+        .container {
+            width: min(900px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 28px 0 70px;
+        }
+
+        header {
+            margin-bottom: 28px;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        header h1::before {
+            content: "$ ";
+        }
+
+        header .subtitle {
+            margin: 4px 0 0;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 0;
+            padding: 18px;
+            margin-bottom: 18px;
+            box-shadow: none;
+        }
+
+        .field-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+
+        .field-label::before {
+            content: "> ";
+            color: var(--muted);
+        }
+
+        input[type="text"] {
+            width: 100%;
+            background: var(--input);
+            border: 1px solid var(--border);
+            border-radius: 0;
+            color: var(--text);
+            padding: 9px 10px;
+            font-size: 13px;
+            font-family: inherit;
+            margin-bottom: 17px;
+        }
+
+        input[type="text"]::placeholder {
+            color: #666;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--text);
+            box-shadow: 0 0 0 1px var(--text);
+        }
+
+        .names-row {
+            display: grid;
+            grid-template-columns:
+                repeat(5, minmax(0, 1fr));
+            gap: 6px;
+            margin-bottom: 18px;
+        }
+
+        .names-row .name-input {
+            min-width: 0;
+            margin-bottom: 0;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 10px;
+        }
+
+        .accent-text {
+            color: var(--text);
+            font-weight: 700;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            display: block;
+            width: 100%;
+            height: 18px;
+            margin: 9px 0 4px;
+            padding: 0;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            background: #333;
+            border: 0;
+            border-radius: 0;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            margin-top: -5px;
+            background: #f5f5f5;
+            border: 0;
+            border-radius: 0;
+            cursor: grab;
+        }
+
+        input[type="range"]::-moz-range-track {
+            width: 100%;
+            height: 4px;
+            background: #333;
+            border: 0;
+            border-radius: 0;
+        }
+
+        input[type="range"]::-moz-range-progress {
+            height: 4px;
+            background: #f5f5f5;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            background: #f5f5f5;
+            border: 0;
+            border-radius: 0;
+            cursor: grab;
+        }
+
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            color: var(--muted);
+            font-size: 11px;
+        }
+
+        .run-button {
+            display: inline-block;
+            background: var(--text);
+            color: #0b0b0b;
+            border: 1px solid var(--text);
+            border-radius: 0;
+            padding: 9px 15px;
+            font-weight: 600;
+            font-size: 13px;
+            font-family: inherit;
+            margin-top: 15px;
+            cursor: pointer;
+        }
+
+        .run-button::before {
+            content: "$ ";
+            color: #777;
+        }
+
+        .run-button:hover:not(:disabled) {
+            background: #222;
+            color: #f5f5f5;
+        }
+
+        .run-button:disabled {
+            background: #222;
+            color: #777;
+            border-color: #444;
+            cursor: not-allowed;
+        }
+
+        .status-card .status-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #status-label {
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        #status-label::before {
+            content: "[ ";
+            color: var(--muted);
+        }
+
+        #status-label::after {
+            content: " ]";
+            color: var(--muted);
+        }
+
+        #progress-label {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .progress-track {
+            background: #242424;
+            height: 6px;
+            border-radius: 0;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            background: var(--text);
+            height: 100%;
+            width: 0%;
+            transition: width 0.2s ease;
+        }
+
+        .error {
+            display: none;
+            background: #160d0d;
+            border: 1px solid #633333;
+            color: #ff8888;
+            padding: 10px;
+            margin-bottom: 17px;
+            font-size: 12px;
+        }
+
+        .stat-cards {
+            display: grid;
+            grid-template-columns:
+                repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 18px;
+        }
+
+        .stat-card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 0;
+            padding: 12px 14px;
+        }
+
+        .stat-card .stat-title {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+        }
+
+        .stat-card .stat-value {
+            font-size: 21px;
+            font-weight: 600;
+            margin-top: 4px;
+        }
+
+        .freq-heading,
+        .groups-heading {
+            padding: 14px 18px 2px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .freq-heading::before,
+        .groups-heading::before {
+            content: "# ";
+            color: var(--muted);
+        }
+
+        .freq-subheading {
+            padding: 0 18px 13px;
+            color: var(--muted);
+            font-size: 11px;
+        }
+
+        .freq-grid {
+            display: grid;
+            grid-template-columns:
+                repeat(5, minmax(0, 1fr));
+            gap: 6px;
+            padding: 0 12px 12px;
+        }
+
+        .freq-box {
+            background: var(--input);
+            border: 1px solid var(--border);
+            border-radius: 0;
+            padding: 9px;
+        }
+
+        .freq-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 3px;
+        }
+
+        .freq-name {
+            font-weight: 600;
+            font-size: 11px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .freq-pct {
+            color: var(--text);
+            font-weight: 600;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .freq-count {
+            color: var(--muted);
+            font-size: 10px;
+        }
+
+        .groups-list {
+            max-height: 320px;
+            overflow-y: auto;
+            padding: 0 12px 12px;
+        }
+
+        .group-row {
+            background: var(--input);
+            border: 1px solid #333;
+            border-radius: 0;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            margin-bottom: 4px;
+        }
+
+        .group-label {
+            color: var(--muted);
+            font-size: 11px;
+            white-space: nowrap;
+        }
+
+        .group-names {
+            color: var(--text);
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .no-matches {
+            color: var(--muted);
+            padding: 12px 18px;
+            font-size: 12px;
+        }
+
+        @media (max-width: 700px) {
+            .names-row,
+            .freq-grid {
+                grid-template-columns:
+                    repeat(2, minmax(0, 1fr));
+            }
+
+            .stat-cards {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 430px) {
+            .container {
+                width: calc(100% - 20px);
+                padding-top: 18px;
+            }
+
+            .names-row,
+            .freq-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <header>
+        <h1>r6-match-checker</h1>
+
+        <p class="subtitle">
+            ~ check how often a chud solo queues ~
+        </p>
+    </header>
+
+
+    <section class="card">
+
+        <div
+            id="error"
+            class="error"
+        ></div>
+
+
+        <label
+            class="field-label"
+            for="player-url"
+        >
+            Player URL
+        </label>
+
+        <input
+            type="text"
+            id="player-url"
+            placeholder="https://stats.cc/siege/PlayerName/uuid..."
+        >
+
+
+        <label class="field-label">
+            Friends to check
+        </label>
+
+        <div class="names-row">
+
+            <input
+                type="text"
+                class="name-input"
+                placeholder="Name 1"
+            >
+
+            <input
+                type="text"
+                class="name-input"
+                placeholder="Name 2"
+            >
+
+            <input
+                type="text"
+                class="name-input"
+                placeholder="Name 3"
+            >
+
+            <input
+                type="text"
+                class="name-input"
+                placeholder="Name 4"
+            >
+
+            <input
+                type="text"
+                class="name-input"
+                placeholder="Name 5"
+            >
+
+        </div>
+
+
+        <div class="slider-header">
+
+            <label
+                class="field-label"
+                for="match-slider"
+            >
+                Matches to check
+            </label>
+
+            <span
+                id="match-count-label"
+                class="accent-text"
+            >
+                50
+            </span>
+
+        </div>
+
+
+        <input
+            type="range"
+            id="match-slider"
+            min="1"
+            max="500"
+            value="50"
+        >
+
+
+        <div class="slider-labels">
+            <span>1</span>
+            <span>500</span>
+        </div>
+
+
+        <button
+            id="run-button"
+            class="run-button"
+            type="button"
+        >
+            Run Checker
+        </button>
+
+    </section>
+
+
+    <section class="card status-card">
+
+        <div class="status-top">
+
+            <span id="status-label">
+                Ready
+            </span>
+
+            <span id="progress-label"></span>
+
+        </div>
+
+
+        <div class="progress-track">
+
+            <div
+                id="progress-bar"
+                class="progress-fill"
+            ></div>
+
+        </div>
+
+    </section>
+
+
+    <section id="results"></section>
+
+</div>
+
+
+<script>
+
+const runButton =
+    document.getElementById("run-button");
+
+const playerUrlInput =
+    document.getElementById("player-url");
+
+const nameInputs =
+    document.querySelectorAll(".name-input");
+
+const matchSlider =
+    document.getElementById("match-slider");
+
+const matchCountLabel =
+    document.getElementById(
+        "match-count-label"
+    );
+
+const statusLabel =
+    document.getElementById(
+        "status-label"
+    );
+
+const progressLabel =
+    document.getElementById(
+        "progress-label"
+    );
+
+const progressBar =
+    document.getElementById(
+        "progress-bar"
+    );
+
+const results =
+    document.getElementById("results");
+
+const errorBox =
+    document.getElementById("error");
+
+
+// ============================================================
+// SLIDER
+// ============================================================
+
+matchSlider.addEventListener(
+    "input",
+    () => {
+        matchCountLabel.textContent =
+            matchSlider.value;
+    }
+);
+
+
+// ============================================================
+// ERROR
+// ============================================================
+
+function showError(message) {
+    errorBox.textContent =
+        message;
+
+    errorBox.style.display =
+        "block";
+}
+
+
+function clearError() {
+    errorBox.textContent =
+        "";
+
+    errorBox.style.display =
+        "none";
+}
+
+
+// ============================================================
+// PROGRESS
+// ============================================================
+
+function updateProgress(
+    current,
+    total
+) {
+    const percentage =
+        total > 0
+            ? Math.round(
+                (current / total) * 100
+            )
+            : 0;
+
+    progressLabel.textContent =
+        `${current} / ${total}`;
+
+    progressBar.style.width =
+        `${percentage}%`;
+}
+
+
+// ============================================================
+// RESET
+// ============================================================
+
+function resetButton() {
+    runButton.disabled =
+        false;
+
+    runButton.textContent =
+        "Run Checker";
+}
+
+
+// ============================================================
+// START
+// ============================================================
+
+async function startChecker() {
+
+    clearError();
+
+    results.innerHTML = "";
+
+    progressBar.style.width =
+        "0%";
+
+    progressLabel.textContent =
+        "";
+
+    statusLabel.textContent =
+        "Starting...";
+
+    runButton.disabled =
+        true;
+
+    runButton.textContent =
+        "Running...";
+
+
+    const playerUrl =
+        playerUrlInput.value.trim();
+
+
+    const names =
+        Array.from(nameInputs)
+            .map(
+                input =>
+                    input.value.trim()
+            )
+            .filter(Boolean);
+
+
+    const targetMatches =
+        Number(
+            matchSlider.value
+        );
+
+
+    if (!playerUrl) {
+
+        showError(
+            "Please enter a player URL."
+        );
+
+        resetButton();
+
+        return;
+    }
+
+
+    if (!names.length) {
+
+        showError(
+            "Please enter at least one friend to check."
+        );
+
+        resetButton();
+
+        return;
+    }
+
+
+    try {
+
+        const response =
+            await fetch(
+                "/api/start",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify({
+                            player_url:
+                                playerUrl,
+
+                            names:
+                                names,
+
+                            target_matches:
+                                targetMatches
+                        })
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.error ||
+                "Failed to start checker."
+            );
+        }
+
+
+        await pollJob(
+            data.job_id
+        );
+
+
+    } catch (error) {
+
+        showError(
+            error.message
+        );
+
+        statusLabel.textContent =
+            "Error";
+
+        resetButton();
+    }
+}
+
+
+// ============================================================
+// POLL
+// ============================================================
+
+async function pollJob(
+    jobId
+) {
+
+    while (true) {
+
+        const response =
+            await fetch(
+                `/api/status/${jobId}`
+            );
+
+
+        const job =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                job.error ||
+                "Failed to get job status."
+            );
+        }
+
+
+        statusLabel.textContent =
+            job.status ||
+            "Working...";
+
+
+        if (job.progress) {
+
+            updateProgress(
+                job.progress.current,
+                job.progress.total
+            );
+        }
+
+
+        if (job.done) {
+
+            if (job.error) {
+
+                throw new Error(
+                    job.error
+                );
+            }
+
+
+            statusLabel.textContent =
+                "Complete";
+
+
+            progressBar.style.width =
+                "100%";
+
+
+            await loadResults(
+                jobId
+            );
+
+
+            break;
+        }
+
+
+        await new Promise(
+            resolve =>
+                setTimeout(
+                    resolve,
+                    1000
+                )
+        );
+    }
+
+
+    resetButton();
+}
+
+
+// ============================================================
+// RESULTS
+// ============================================================
+
+async function loadResults(
+    jobId
+) {
+
+    const response =
+        await fetch(
+            `/api/result/${jobId}`
+        );
+
+
+    const data =
+        await response.json();
+
+
+    if (!response.ok) {
+
+        throw new Error(
+            data.error ||
+            "Failed to load results."
+        );
+    }
+
+
+    renderResults(data);
+}
+
+
+// ============================================================
+// RENDER RESULTS
+// ============================================================
+
+function renderResults(data) {
+
+    const total =
+        Number(
+            data.total_groups || 0
+        );
+
+
+    const withMatch =
+        Number(
+            data.groups_with_match || 0
+        );
+
+
+    const withoutMatch =
+        Number(
+            data.groups_without_match || 0
+        );
+
+
+    let html = `
+
+        <div class="stat-cards">
+
+            <div class="stat-card">
+
+                <div class="stat-title">
+                    Matches Checked
+                </div>
+
+                <div class="stat-value">
+                    ${total}
+                </div>
+
+            </div>
+
+
+            <div class="stat-card">
+
+                <div class="stat-title">
+                    Matches With Target
+                </div>
+
+                <div class="stat-value">
+                    ${withMatch}
+                </div>
+
+            </div>
+
+
+            <div class="stat-card">
+
+                <div class="stat-title">
+                    Matches Without Target
+                </div>
+
+                <div class="stat-value">
+                    ${withoutMatch}
+                </div>
+
+            </div>
+
+        </div>
+
+    `;
+
+
+    // Frequency section.
+
+    const frequencies =
+        Array.isArray(
+            data.player_frequencies
+        )
+            ? data.player_frequencies
+            : [];
+
+
+    html += `
+
+        <div class="card">
+
+            <div class="freq-heading">
+                Player Frequency
+            </div>
+
+            <div class="freq-subheading">
+                How often each friend appeared in the checked matches.
+            </div>
+
+            <div class="freq-grid">
+
+    `;
+
+
+    if (!frequencies.length) {
+
+        html += `
+
+            <div class="freq-box">
+
+                <div class="freq-name">
+                    No data
+                </div>
+
+            </div>
+
+        `;
+
+    } else {
+
+        for (
+            const player
+            of frequencies
+        ) {
+
+            const name =
+                escapeHtml(
+                    player.name
+                );
+
+
+            const count =
+                Number(
+                    player.count || 0
+                );
+
+
+            const percentage =
+                Number(
+                    player.percentage || 0
+                );
+
+
+            html += `
+
+                <div class="freq-box">
+
+                    <div class="freq-top">
+
+                        <span
+                            class="freq-name"
+                            title="${name}"
+                        >
+                            ${name}
+                        </span>
+
+                        <span class="freq-pct">
+                            ${percentage.toFixed(1)}%
+                        </span>
+
+                    </div>
+
+                    <div class="freq-count">
+                        ${count}/${total}
+                    </div>
+
+                </div>
+
+            `;
+        }
+    }
+
+
+    html += `
+
+            </div>
+
+        </div>
+
+    `;
+
+
+    // Matching groups.
+
+    const groups =
+        Array.isArray(
+            data.matching_groups
+        )
+            ? data.matching_groups
+            : [];
+
+
+    html += `
+
+        <div class="card">
+
+            <div class="groups-heading">
+                Matching Matches
+            </div>
+
+    `;
+
+
+    if (!groups.length) {
+
+        html += `
+
+            <div class="no-matches">
+                No matching matches found.
+            </div>
+
+        `;
+
+    } else {
+
+        html += `
+            <div class="groups-list">
+        `;
+
+
+        for (
+            const group
+            of groups
+        ) {
+
+            const groupNumber =
+                escapeHtml(
+                    group.group
+                );
+
+
+            const groupNames =
+                Array.isArray(
+                    group.names
+                )
+                    ? group.names
+                        .map(
+                            escapeHtml
+                        )
+                        .join(", ")
+                    : "";
+
+
+            html += `
+
+                <div class="group-row">
+
+                    <span class="group-label">
+                        Match ${groupNumber}
+                    </span>
+
+                    <span class="group-names">
+                        ${groupNames}
+                    </span>
+
+                </div>
+
+            `;
+        }
+
+
+        html += `
+            </div>
+        `;
+    }
+
+
+    html += `
+        </div>
+    `;
+
+
+    results.innerHTML =
+        html;
+}
+
+
+// ============================================================
+// HTML ESCAPE
+// ============================================================
+
+function escapeHtml(value) {
+
+    const div =
+        document.createElement(
+            "div"
+        );
+
+    div.textContent =
+        String(value);
+
+    return div.innerHTML;
+}
+
+
+// ============================================================
+// EVENTS
+// ============================================================
+
+runButton.addEventListener(
+    "click",
+    startChecker
+);
+
+
+playerUrlInput.addEventListener(
+    "keydown",
+    (event) => {
+
+        if (
+            event.key === "Enter"
+        ) {
+            startChecker();
+        }
+
+    }
+);
+
+</script>
+
+</body>
+</html>
