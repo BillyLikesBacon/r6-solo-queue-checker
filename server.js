@@ -813,7 +813,11 @@ app.use(
 
 app.post("/api/feedback", async (req, res) => {
     try {
-        const message = String(req.body.message || "").trim();
+        const message =
+          String(req.body.message || "").trim();
+
+        const deviceInfo =
+          req.body.device_info || {};
 
         if (!message) {
             return res.status(400).json({
@@ -828,10 +832,11 @@ app.post("/api/feedback", async (req, res) => {
         }
 
         const { error } = await supabase
-            .from("feedback")
-            .insert({
-                message
-            });
+          .from("feedback")
+          .insert({
+              message: message,
+              device_info: deviceInfo
+        });
 
         if (error) {
             console.error("Supabase error:", error);

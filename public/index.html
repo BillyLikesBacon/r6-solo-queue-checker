@@ -957,9 +957,10 @@ feedbackSubmit.addEventListener(
                         },
 
                         body: JSON.stringify({
-                            message:
-                                message
+                            message: message,
+                            device_info: getDeviceInfo()
                         })
+
                     }
                 );
 
