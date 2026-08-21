@@ -1020,6 +1020,109 @@ feedbackSubmit.addEventListener(
     }
 );
 
+// =====================================
+// DEVICE INFORMATION
+// =====================================
+
+function getDeviceInfo() {
+    return {
+        user_agent: navigator.userAgent,
+        platform: navigator.platform || "",
+        language: navigator.language || "",
+        screen_width: window.screen.width,
+        screen_height: window.screen.height,
+        timezone:
+            Intl.DateTimeFormat().resolvedOptions().timeZone || ""
+    };
+}
+
+function getDeviceInfo() {
+
+    const ua = navigator.userAgent;
+
+    let browser = "Unknown";
+
+    if (ua.includes("Edg/")) {
+        browser = "Microsoft Edge";
+    } else if (ua.includes("Chrome/")) {
+        browser = "Google Chrome";
+    } else if (ua.includes("Firefox/")) {
+        browser = "Mozilla Firefox";
+    } else if (ua.includes("Safari/")) {
+        browser = "Safari";
+    } else if (ua.includes("OPR/")) {
+        browser = "Opera";
+    }
+
+
+    let operatingSystem = "Unknown";
+
+    if (ua.includes("Windows")) {
+        operatingSystem = "Windows";
+    } else if (ua.includes("Mac OS X")) {
+        operatingSystem = "macOS";
+    } else if (ua.includes("Android")) {
+        operatingSystem = "Android";
+    } else if (
+        ua.includes("iPhone") ||
+        ua.includes("iPad")
+    ) {
+        operatingSystem = "iOS";
+    } else if (ua.includes("Linux")) {
+        operatingSystem = "Linux";
+    }
+
+
+    return {
+
+        // Screen
+        screen_width: window.screen.width,
+        screen_height: window.screen.height,
+
+        // Browser viewport
+        viewport_width: window.innerWidth,
+        viewport_height: window.innerHeight,
+
+        // Display density
+        device_pixel_ratio:
+            window.devicePixelRatio || 1,
+
+        // Touch support
+        touch_supported:
+            "ontouchstart" in window ||
+            navigator.maxTouchPoints > 0,
+
+        max_touch_points:
+            navigator.maxTouchPoints || 0,
+
+        // Browser / OS
+        browser: browser,
+        operating_system: operatingSystem,
+
+        // Browser language
+        language:
+            navigator.language || null,
+
+        // Timezone
+        timezone:
+            Intl.DateTimeFormat().resolvedOptions().timeZone || null,
+
+        // Hardware information when the browser provides it
+        cpu_cores:
+            navigator.hardwareConcurrency || null,
+
+        device_memory_gb:
+            navigator.deviceMemory || null,
+
+        // Connection information when available
+        connection_type:
+            navigator.connection?.effectiveType || null,
+
+        // Mobile/tablet detection
+        mobile:
+            /Android|iPhone|iPad|iPod|Mobile/i.test(ua)
+    };
+}
 
 // =====================================
 // START APPLICATION
