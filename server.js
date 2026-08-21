@@ -45,6 +45,13 @@ const INVALID_NAMES = new Set([
 
 const JOBS = new Map();
 
+const { createClient } = require("@supabase/supabase-js");
+
+const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_KEY
+);
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -803,6 +810,49 @@ app.use(
     path.join(__dirname, "public")
   )
 );
+
+app.post("/api/feedback", async (req, res) => {
+    try {
+        const message = String(req.body.message || "").trim();
+
+        if (!message) {
+            return res.status(400).json({
+                error: "Feedback cannot be empty."
+            });
+        }
+
+        if (message.length > 2000) {
+            return res.status(400).json({
+                error: "Feedback is too long."
+            });
+        }
+
+        const { error } = await supabase
+            .from("feedback")
+            .insert({
+                message
+            });
+
+        if (error) {
+            console.error("Supabase error:", error);
+
+            return res.status(500).json({
+                error: "Failed to save feedback."
+            });
+        }
+
+        res.json({
+            success: true
+        });
+
+    } catch (error) {
+        console.error("Feedback error:", error);
+
+        res.status(500).json({
+            error: "Failed to submit feedback."
+        });
+    }
+});
 
 app.get("/", (req, res) => {
   res.sendFile(

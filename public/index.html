@@ -99,163 +99,356 @@
 
     <section id="results"></section>
 
+
+    <!-- ============================= -->
+    <!-- FEEDBACK BUTTON                -->
+    <!-- ============================= -->
+
+    <div class="feedback-section">
+
+        <button
+            id="feedback-button"
+            type="button"
+            class="feedback-button"
+        >
+            Send Feedback
+        </button>
+
+    </div>
+
+
+    <!-- ============================= -->
+    <!-- FEEDBACK POPUP                 -->
+    <!-- ============================= -->
+
+    <div
+        id="feedback-modal"
+        class="feedback-modal"
+    >
+
+        <div class="feedback-box">
+
+            <h2>Send Feedback</h2>
+
+            <p>
+                Have a suggestion, found a bug, or just want to
+                leave some feedback?
+            </p>
+
+            <textarea
+                id="feedback-message"
+                maxlength="2000"
+                placeholder="Tell me what you think..."
+            ></textarea>
+
+            <div
+                id="feedback-error"
+                class="feedback-error"
+            ></div>
+
+            <div class="feedback-actions">
+
+                <button
+                    id="feedback-cancel"
+                    type="button"
+                    class="feedback-cancel"
+                >
+                    Cancel
+                </button>
+
+                <button
+                    id="feedback-submit"
+                    type="button"
+                    class="feedback-submit"
+                >
+                    Send
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ============================= -->
+    <!-- DISCLAIMER                     -->
+    <!-- ============================= -->
+
     <footer class="site-disclaimer">
+
         R6SS is an independent, unofficial project and is not
         trademarked, licensed, endorsed, or affiliated with Ubisoft,
         Rainbow Six Siege, or Stats.cc.
+
     </footer>
 
 </div>
 
+
 <script>
-const runButton = document.getElementById("run-button");
-const playerUrlInput = document.getElementById("player-url");
-const nameInputs = document.querySelectorAll(".name-input");
-const matchSlider = document.getElementById("match-slider");
-const matchCountLabel = document.getElementById("match-count-label");
 
-const statusLabel = document.getElementById("status-label");
-const progressLabel = document.getElementById("progress-label");
-const progressBar = document.getElementById("progress-bar");
-const errorBox = document.getElementById("error");
-const results = document.getElementById("results");
+const runButton =
+    document.getElementById("run-button");
+
+const playerUrlInput =
+    document.getElementById("player-url");
+
+const nameInputs =
+    document.querySelectorAll(".name-input");
+
+const matchSlider =
+    document.getElementById("match-slider");
+
+const matchCountLabel =
+    document.getElementById("match-count-label");
+
+const statusLabel =
+    document.getElementById("status-label");
+
+const progressLabel =
+    document.getElementById("progress-label");
+
+const progressBar =
+    document.getElementById("progress-bar");
+
+const errorBox =
+    document.getElementById("error");
+
+const results =
+    document.getElementById("results");
 
 
-// Update match count beside slider
+// =====================================
+// MATCH SLIDER
+// =====================================
+
 matchSlider.addEventListener("input", () => {
-    matchCountLabel.textContent = matchSlider.value;
+
+    matchCountLabel.textContent =
+        matchSlider.value;
+
 });
 
 
-// Display errors
+// =====================================
+// ERROR HANDLING
+// =====================================
+
 function showError(message) {
-    errorBox.textContent = message;
-    errorBox.style.display = "block";
+
+    errorBox.textContent =
+        message;
+
+    errorBox.style.display =
+        "block";
+
 }
 
 
 function clearError() {
-    errorBox.textContent = "";
-    errorBox.style.display = "none";
+
+    errorBox.textContent =
+        "";
+
+    errorBox.style.display =
+        "none";
+
 }
 
 
-// Update progress bar
+// =====================================
+// PROGRESS BAR
+// =====================================
+
 function updateProgress(current, total) {
 
     if (!total) {
-        progressBar.style.width = "0%";
-        progressLabel.textContent = "";
+
+        progressBar.style.width =
+            "0%";
+
+        progressLabel.textContent =
+            "";
+
         return;
     }
 
-    const percentage = Math.round(
-        (current / total) * 100
-    );
+    const percentage =
+        Math.round(
+            (current / total) * 100
+        );
 
-    progressBar.style.width = `${percentage}%`;
+    progressBar.style.width =
+        `${percentage}%`;
 
     progressLabel.textContent =
         `${current} / ${total}`;
+
 }
 
 
-// Start checker
+// =====================================
+// START CHECKER
+// =====================================
+
 async function startChecker() {
 
     clearError();
 
-    results.innerHTML = "";
+    results.innerHTML =
+        "";
 
-    runButton.disabled = true;
-    runButton.textContent = "Running...";
+    runButton.disabled =
+        true;
 
-    statusLabel.textContent = "Starting";
-    progressLabel.textContent = "";
-    progressBar.style.width = "0%";
+    runButton.textContent =
+        "Running...";
+
+    statusLabel.textContent =
+        "Starting";
+
+    progressLabel.textContent =
+        "";
+
+    progressBar.style.width =
+        "0%";
+
 
     const playerUrl =
         playerUrlInput.value.trim();
 
-    const names = Array.from(nameInputs)
-        .map(input => input.value.trim())
-        .filter(Boolean);
+
+    const names =
+        Array.from(nameInputs)
+            .map(input =>
+                input.value.trim()
+            )
+            .filter(Boolean);
+
 
     const targetMatches =
         Number(matchSlider.value);
 
+
     if (!playerUrl) {
-        showError("Player URL is required.");
+
+        showError(
+            "Player URL is required."
+        );
+
         resetButton();
+
         return;
     }
 
+
     if (!names.length) {
+
         showError(
             "Enter at least one squad member."
         );
+
         resetButton();
+
         return;
     }
 
+
     try {
 
-        const response = await fetch("/api/start", {
-            method: "POST",
+        const response =
+            await fetch(
+                "/api/start",
+                {
+                    method: "POST",
 
-            headers: {
-                "Content-Type": "application/json"
-            },
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
 
-            body: JSON.stringify({
-                player_url: playerUrl,
-                names: names,
-                target_matches: targetMatches
-            })
-        });
+                    body: JSON.stringify({
+                        player_url:
+                            playerUrl,
 
-        const data = await response.json();
+                        names:
+                            names,
+
+                        target_matches:
+                            targetMatches
+                    })
+                }
+            );
+
+
+        const data =
+            await response.json();
+
 
         if (!response.ok) {
+
             throw new Error(
                 data.error ||
                 "Failed to start checker."
             );
+
         }
 
-        await pollJob(data.job_id);
+
+        await pollJob(
+            data.job_id
+        );
+
 
     } catch (error) {
 
-        showError(error.message);
+        showError(
+            error.message
+        );
 
-        statusLabel.textContent = "Failed";
+        statusLabel.textContent =
+            "Failed";
 
         resetButton();
+
     }
+
 }
 
 
-// Poll job status
+// =====================================
+// POLL JOB STATUS
+// =====================================
+
 async function pollJob(jobId) {
 
     while (true) {
 
         const response =
-            await fetch(`/api/status/${jobId}`);
+            await fetch(
+                `/api/status/${jobId}`
+            );
+
 
         const job =
             await response.json();
 
+
         if (!response.ok) {
+
             throw new Error(
                 job.error ||
                 "Failed to retrieve job status."
             );
+
         }
 
+
         statusLabel.textContent =
-            job.status || "Working";
+            job.status ||
+            "Working";
+
 
         if (job.progress) {
 
@@ -263,60 +456,98 @@ async function pollJob(jobId) {
                 job.progress.current,
                 job.progress.total
             );
+
         }
+
 
         if (job.done) {
 
             if (job.error) {
-                throw new Error(job.error);
+
+                throw new Error(
+                    job.error
+                );
+
             }
 
-            await loadResults(jobId);
+
+            await loadResults(
+                jobId
+            );
+
 
             statusLabel.textContent =
                 "Complete";
 
+
             break;
+
         }
 
+
         await new Promise(
-            resolve => setTimeout(resolve, 1000)
+            resolve =>
+                setTimeout(
+                    resolve,
+                    1000
+                )
         );
+
     }
 
+
     resetButton();
+
 }
 
 
-// Load final results
+// =====================================
+// LOAD RESULTS
+// =====================================
+
 async function loadResults(jobId) {
 
     const response =
-        await fetch(`/api/result/${jobId}`);
+        await fetch(
+            `/api/result/${jobId}`
+        );
+
 
     const data =
         await response.json();
 
+
     if (!response.ok) {
+
         throw new Error(
             data.error ||
             "Failed to load results."
         );
+
     }
 
-    renderResults(data);
+
+    renderResults(
+        data
+    );
+
 }
 
 
-// Render results
+// =====================================
+// RENDER RESULTS
+// =====================================
+
 function renderResults(data) {
 
     const stats = `
+
         <section class="card">
 
             <div class="stat-cards">
 
                 <div class="stat-card">
+
                     <div class="stat-title">
                         Total Matches Checked
                     </div>
@@ -324,9 +555,12 @@ function renderResults(data) {
                     <div class="stat-value">
                         ${data.total_groups}
                     </div>
+
                 </div>
 
+
                 <div class="stat-card">
+
                     <div class="stat-title">
                         Matches With One Or More Squad Members
                     </div>
@@ -334,9 +568,12 @@ function renderResults(data) {
                     <div class="stat-value">
                         ${data.groups_with_match}
                     </div>
+
                 </div>
 
+
                 <div class="stat-card">
+
                     <div class="stat-title">
                         Solo Matches
                     </div>
@@ -344,26 +581,32 @@ function renderResults(data) {
                     <div class="stat-value">
                         ${data.groups_without_match}
                     </div>
+
                 </div>
 
             </div>
+
 
             <div class="freq-heading">
                 Squad Frequency
             </div>
 
+
             <div class="freq-subheading">
                 How often the player queues with each squad member
             </div>
+
 
             <div
                 id="frequency-grid"
                 class="freq-grid">
             </div>
 
+
             <div class="groups-heading">
                 Matches With Squad Members
             </div>
+
 
             <div
                 id="groups-list"
@@ -371,16 +614,30 @@ function renderResults(data) {
             </div>
 
         </section>
+
     `;
 
-    results.innerHTML = stats;
 
-    renderFrequencies(data);
-    renderGroups(data);
+    results.innerHTML =
+        stats;
+
+
+    renderFrequencies(
+        data
+    );
+
+
+    renderGroups(
+        data
+    );
+
 }
 
 
-// Render frequency cards
+// =====================================
+// RENDER FREQUENCIES
+// =====================================
+
 function renderFrequencies(data) {
 
     const container =
@@ -388,7 +645,10 @@ function renderFrequencies(data) {
             "frequency-grid"
         );
 
-    container.innerHTML = "";
+
+    container.innerHTML =
+        "";
+
 
     for (
         const player
@@ -396,11 +656,17 @@ function renderFrequencies(data) {
     ) {
 
         const box =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
 
-        box.className = "freq-box";
+
+        box.className =
+            "freq-box";
+
 
         box.innerHTML = `
+
             <div class="freq-top">
 
                 <span class="freq-name">
@@ -413,18 +679,32 @@ function renderFrequencies(data) {
 
             </div>
 
+
             <div class="freq-count">
-                ${player.count} / ${data.total_groups}
+
+                ${player.count}
+                /
+                ${data.total_groups}
                 matches
+
             </div>
+
         `;
 
-        container.appendChild(box);
+
+        container.appendChild(
+            box
+        );
+
     }
+
 }
 
 
-// Render matching matches
+// =====================================
+// RENDER MATCHING GROUPS
+// =====================================
+
 function renderGroups(data) {
 
     const container =
@@ -432,7 +712,10 @@ function renderGroups(data) {
             "groups-list"
         );
 
-    container.innerHTML = "";
+
+    container.innerHTML =
+        "";
+
 
     if (
         !data.matching_groups ||
@@ -440,14 +723,20 @@ function renderGroups(data) {
     ) {
 
         container.innerHTML = `
+
             <div class="no-matches">
+
                 No squad members were found
                 in the checked matches.
+
             </div>
+
         `;
 
         return;
+
     }
+
 
     for (
         const group
@@ -455,53 +744,291 @@ function renderGroups(data) {
     ) {
 
         const row =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
 
-        row.className = "group-row";
+
+        row.className =
+            "group-row";
+
 
         row.innerHTML = `
+
             <span class="group-label">
                 Match ${group.group}
             </span>
 
             <span class="group-names">
+
                 ${group.names
                     .map(escapeHtml)
                     .join(", ")}
+
             </span>
+
         `;
 
-        container.appendChild(row);
+
+        container.appendChild(
+            row
+        );
+
     }
+
 }
 
 
-// Prevent HTML injection
+// =====================================
+// HTML ESCAPING
+// =====================================
+
 function escapeHtml(value) {
 
     const div =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
+
 
     div.textContent =
         String(value);
 
+
     return div.innerHTML;
+
 }
 
 
-// Reset button
+// =====================================
+// RESET RUN BUTTON
+// =====================================
+
 function resetButton() {
 
-    runButton.disabled = false;
-    runButton.textContent = "Run Checker";
+    runButton.disabled =
+        false;
+
+    runButton.textContent =
+        "Run Checker";
+
 }
 
 
-// Start
+// =====================================
+// FEEDBACK SYSTEM
+// =====================================
+
+const feedbackButton =
+    document.getElementById(
+        "feedback-button"
+    );
+
+
+const feedbackModal =
+    document.getElementById(
+        "feedback-modal"
+    );
+
+
+const feedbackCancel =
+    document.getElementById(
+        "feedback-cancel"
+    );
+
+
+const feedbackSubmit =
+    document.getElementById(
+        "feedback-submit"
+    );
+
+
+const feedbackMessage =
+    document.getElementById(
+        "feedback-message"
+    );
+
+
+const feedbackError =
+    document.getElementById(
+        "feedback-error"
+    );
+
+
+// Open feedback popup
+
+feedbackButton.addEventListener(
+    "click",
+    () => {
+
+        feedbackModal.classList.add(
+            "open"
+        );
+
+        feedbackMessage.focus();
+
+    }
+);
+
+
+// Close feedback popup
+
+feedbackCancel.addEventListener(
+    "click",
+    () => {
+
+        feedbackModal.classList.remove(
+            "open"
+        );
+
+        feedbackMessage.value =
+            "";
+
+        feedbackError.textContent =
+            "";
+
+    }
+);
+
+
+// Close when clicking outside the box
+
+feedbackModal.addEventListener(
+    "click",
+    (event) => {
+
+        if (
+            event.target ===
+            feedbackModal
+        ) {
+
+            feedbackModal.classList.remove(
+                "open"
+            );
+
+        }
+
+    }
+);
+
+
+// Submit feedback
+
+feedbackSubmit.addEventListener(
+    "click",
+    async () => {
+
+        const message =
+            feedbackMessage.value.trim();
+
+
+        if (!message) {
+
+            feedbackError.textContent =
+                "Please enter some feedback.";
+
+            return;
+
+        }
+
+
+        feedbackSubmit.disabled =
+            true;
+
+        feedbackSubmit.textContent =
+            "Sending...";
+
+
+        feedbackError.textContent =
+            "";
+
+
+        try {
+
+            const response =
+                await fetch(
+                    "/api/feedback",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
+
+                        body: JSON.stringify({
+                            message:
+                                message
+                        })
+                    }
+                );
+
+
+            const data =
+                await response.json();
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    data.error ||
+                    "Failed to send feedback."
+                );
+
+            }
+
+
+            feedbackMessage.value =
+                "";
+
+
+            feedbackError.textContent =
+                "Thanks for the feedback!";
+
+
+            setTimeout(
+                () => {
+
+                    feedbackModal.classList.remove(
+                        "open"
+                    );
+
+                    feedbackError.textContent =
+                        "";
+
+                },
+                1200
+            );
+
+
+        } catch (error) {
+
+            feedbackError.textContent =
+                error.message;
+
+        } finally {
+
+            feedbackSubmit.disabled =
+                false;
+
+            feedbackSubmit.textContent =
+                "Send";
+
+        }
+
+    }
+);
+
+
+// =====================================
+// START APPLICATION
+// =====================================
+
 runButton.addEventListener(
     "click",
     startChecker
 );
+
 </script>
 
 </body>

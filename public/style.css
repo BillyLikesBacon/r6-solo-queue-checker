@@ -456,3 +456,73 @@ input[type="range"]:focus-visible {
     grid-template-columns: 1fr;
   }
 }
+
+.feedback-section {
+    text-align: center;
+    margin: 30px 0;
+}
+
+#feedback-button {
+    background: transparent;
+    border: 1px solid #555;
+    color: #aaa;
+    padding: 10px 18px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+#feedback-button:hover {
+    color: white;
+    border-color: #888;
+}
+
+.feedback-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.feedback-modal.open {
+    display: flex;
+}
+
+.feedback-box {
+    width: min(500px, 90%);
+    padding: 25px;
+    border-radius: 10px;
+    background: #1b1b1b;
+    border: 1px solid #333;
+}
+
+.feedback-box h2 {
+    margin-top: 0;
+}
+
+#feedback-message {
+    width: 100%;
+    min-height: 150px;
+    box-sizing: border-box;
+    resize: vertical;
+    padding: 12px;
+    margin: 10px 0;
+}
+
+.feedback-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.feedback-actions button {
+    padding: 9px 16px;
+    cursor: pointer;
+}
+
+#feedback-error {
+    min-height: 20px;
+    margin-bottom: 10px;
+}
