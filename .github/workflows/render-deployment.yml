@@ -1,0 +1,29 @@
+name: Render Production Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  deploy:
+    name: Deploy to Render
+    runs-on: ubuntu-latest
+
+    environment:
+      name: Production
+      url: https://r6ss.onrender.com
+
+    steps:
+      - name: Wait for Render deployment
+        run: |
+          echo "Render is automatically deploying this commit."
+          echo "Production URL: https://r6ss.onrender.com"
+
+          sleep 30
+
+          echo "Render deployment should now be in progress."
