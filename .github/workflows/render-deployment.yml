@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     environment:
-      name: Production
+      name: main - r6-match-checker
       url: https://r6ss.onrender.com
 
     steps:
