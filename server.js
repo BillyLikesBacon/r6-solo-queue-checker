@@ -389,25 +389,15 @@ function buildPairKey(a, b) {
   return [a, b].sort().join(" <> ");
 }
 
-function calculatePairwiseFrequencies(allPlayers, matchSets) {
+function calculatePairwiseFrequencies(allPlayers) {
   const pairs = [];
 
   for (let i = 0; i < allPlayers.length; i++) {
     for (let j = i + 1; j < allPlayers.length; j++) {
       const a = allPlayers[i];
       const b = allPlayers[j];
-      const setA = matchSets[a];
-      const setB = matchSets[b];
-
-      if (!setA || !setB) {
-        pairs.push({
-          players: [a.name, b.name],
-          count: 0,
-          total: 0,
-          percentage: 0,
-        });
-        continue;
-      }
+      const setA = a.matchSet;
+      const setB = b.matchSet;
 
       let sharedCount = 0;
       for (const id of setA) {
@@ -502,13 +492,7 @@ async function runScraper(
 
     setStatus(jobId, "Calculating pairwise frequencies...");
 
-    // Build a matchSets map keyed by name for pair calculation
-    const matchSetsMap = {};
-    for (const p of playerData) {
-      matchSetsMap[p.name] = p.matchSet;
-    }
-
-    const pairFrequencies = calculatePairwiseFrequencies(playerData, matchSetsMap);
+    const pairFrequencies = calculatePairwiseFrequencies(playerData);
 
     // Individual frequency vs main player (for backwards compat with frontend)
     const squadNames = names;
