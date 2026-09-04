@@ -654,7 +654,7 @@
 
         function renderResults(data) {
 
-            const pairCount = data.pair_frequencies ? data.pair_frequencies.length : 0;
+            const totalPlayers = 1 + (data.player_frequencies ? data.player_frequencies.length : 0);
 
             const stats = `
 
@@ -663,113 +663,105 @@
             <div class="stat-cards">
 
                 <div class="stat-card">
-
-                    <div class="stat-title">
-                        Main Player Matches Checked
-                    </div>
-
-                    <div class="stat-value">
-                        ${data.total_groups}
-                    </div>
-
+                    <div class="stat-title">Main Player Matches Checked</div>
+                    <div class="stat-value">${data.total_groups}</div>
                 </div>
 
-
                 <div class="stat-card">
-
-                    <div class="stat-title">
-                        Squad Members
-                    </div>
-
-                    <div class="stat-value">
-                        ${data.player_frequencies ? data.player_frequencies.length : 0}
-                    </div>
-
+                    <div class="stat-title">Players in Squad</div>
+                    <div class="stat-value">${totalPlayers}</div>
                 </div>
 
-
                 <div class="stat-card">
-
-                    <div class="stat-title">
-                        Pairs Compared
-                    </div>
-
-                    <div class="stat-value">
-                        ${pairCount}
-                    </div>
-
+                    <div class="stat-title">Pairs Compared</div>
+                    <div class="stat-value">${data.pair_frequencies ? data.pair_frequencies.length : 0}</div>
                 </div>
 
             </div>
 
 
             <div class="freq-heading">
-                Pairwise Co-Play Frequency
+                Squad Co-Play Breakdown
             </div>
-
 
             <div class="freq-subheading">
-                How often each pair of squad members has queued together
+                Each player's frequency with everyone else in the squad
             </div>
 
-
-            <div
-                id="pair-grid"
-                class="pair-grid">
-            </div>
+            <div id="player-sections"></div>
 
         </section>
 
     `;
 
-
             results.innerHTML = stats;
-
-            renderPairs(data);
+            renderPlayerSections(data);
 
         }
 
 
         // =====================================
-        // RENDER PAIRWISE CO-PLAY
+        // RENDER PLAYER SECTIONS
         // =====================================
 
-        function renderPairs(data) {
+        function renderPlayerSections(data) {
 
-            const container = document.getElementById("pair-grid");
+            const container = document.getElementById("player-sections");
             if (!container) return;
             container.innerHTML = "";
 
             const pairs = data.pair_frequencies;
-
             if (!pairs || pairs.length === 0) {
-                container.innerHTML = `<div class="no-matches">No pair data available.</div>`;
+                container.innerHTML = `<div class="no-matches" style="padding:12px 18px">No data available.</div>`;
                 return;
             }
 
-            // Sort by count descending
-            const sorted = [...pairs].sort((a, b) => b.count - a.count);
+            // Collect all unique player names
+            const playerSet = new Set();
+            for (const pair of pairs) {
+                playerSet.add(pair.players[0]);
+                playerSet.add(pair.players[1]);
+            }
+            const allPlayers = [...playerSet];
 
-            for (const pair of sorted) {
-                const box = document.createElement("div");
-                box.className = "pair-box" + (pair.count === 0 ? " empty" : "");
+            // Build lookup: playerName -> list of { other, count, total, percentage }
+            const lookup = {};
+            for (const name of allPlayers) lookup[name] = [];
 
-                const pct = pair.percentage.toFixed(1);
+            for (const pair of pairs) {
                 const [p1, p2] = pair.players;
+                lookup[p1].push({ other: p2, count: pair.count, total: pair.total, percentage: pair.percentage });
+                lookup[p2].push({ other: p1, count: pair.count, total: pair.total, percentage: pair.percentage });
+            }
 
-                box.innerHTML = `
-                    <div class="pair-names">
-                        <span class="pair-player">${escapeHtml(p1)}</span>
-                        <span class="pair-sep"> & </span>
-                        <span class="pair-player">${escapeHtml(p2)}</span>
-                    </div>
-                    <div class="pair-stats">
-                        <span class="pair-pct">${pct}%</span>
-                        <span class="pair-count">${pair.count} / ${pair.total} matches</span>
-                    </div>
+            for (const playerName of allPlayers) {
+
+                const section = document.createElement("div");
+                section.className = "player-section";
+
+                const peers = [...lookup[playerName]].sort((a, b) => b.percentage - a.percentage);
+
+                const rows = peers.map(p => {
+                    const pct = p.percentage.toFixed(1);
+                    const barWidth = Math.round(p.percentage);
+                    return `
+                        <div class="peer-row">
+                            <span class="peer-name">${escapeHtml(p.other)}</span>
+                            <div class="peer-bar-wrap">
+                                <div class="peer-bar" style="width:${barWidth}%"></div>
+                            </div>
+                            <span class="peer-pct">${pct}%</span>
+                            <span class="peer-count">${p.count}/${p.total}</span>
+                        </div>
+                    `;
+                }).join("");
+
+                section.innerHTML = `
+                    <div class="player-section-header">${escapeHtml(playerName)}</div>
+                    <div class="peer-list">${rows}</div>
                 `;
 
-                container.appendChild(box);
+                container.appendChild(section);
             }
 
         }

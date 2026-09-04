@@ -464,57 +464,99 @@ input[type="range"]:focus-visible {
   font-weight: 400;
 }
 
-.pair-grid {
+/* ── Player section layout ─────────────────── */
+
+#player-sections {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px;
   padding: 0 12px 12px;
 }
 
-.pair-box {
+.player-section {
   background: var(--input);
   border: 1px solid var(--border);
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
 }
 
-.pair-box.empty {
-  opacity: 0.45;
+.player-section-header {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 9px 12px 8px;
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.pair-names {
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-.pair-player {
-  color: var(--text);
-}
-
-.pair-sep {
+.player-section-header::before {
+  content: "> ";
   color: var(--muted);
   font-weight: 400;
 }
 
-.pair-stats {
+.peer-list {
+  padding: 8px 12px 10px;
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 6px;
+  flex-direction: column;
+  gap: 7px;
 }
 
-.pair-pct {
+.peer-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.peer-name {
+  color: var(--text);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.peer-bar-wrap {
+  display: none;
+}
+
+.peer-pct {
   color: var(--text);
   font-weight: 700;
-  font-size: 13px;
+  font-size: 12px;
+  white-space: nowrap;
+  text-align: right;
+  min-width: 42px;
 }
 
-.pair-count {
+.peer-count {
   color: var(--muted);
   font-size: 10px;
+  white-space: nowrap;
+  text-align: right;
+  min-width: 52px;
+}
+
+@media (min-width: 600px) {
+  .peer-row {
+    grid-template-columns: 1fr 80px auto auto;
+  }
+
+  .peer-bar-wrap {
+    display: block;
+    background: #242424;
+    height: 3px;
+    border-radius: 0;
+    overflow: hidden;
+  }
+
+  .peer-bar {
+    background: var(--text);
+    height: 100%;
+    max-width: 100%;
+    transition: width 0.3s ease;
+  }
 }
 
 .groups-list {
