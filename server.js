@@ -26,6 +26,7 @@ const MAX_RETRIES = 6;
 const RATE_LIMIT_WAIT = 20000;
 const ERROR_WAIT = 15000;
 const DEFAULT_TARGET_MATCHES = 50;
+const MAX_CONCURRENT_PLAYER_SCRAPES = 3;
 
 const UUID_PATTERN =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -47,10 +48,9 @@ const JOBS = new Map();
 
 const { createClient } = require("@supabase/supabase-js");
 
-const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_KEY
-);
+const supabase = (process.env.SUPABASE_URL && process.env.SUPABASE_KEY)
+  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY)
+  : null;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -77,6 +77,21 @@ function setProgress(jobId, current, total) {
       current,
       total,
     },
+  });
+}
+
+function setPlayerProgress(jobId, index, current) {
+  const job = JOBS.get(jobId);
+  if (!job || !job.player_progress || !job.player_progress[index]) return;
+
+  const playerProgress = [...job.player_progress];
+  playerProgress[index] = {
+    ...playerProgress[index],
+    current,
+  };
+
+  updateJob(jobId, {
+    player_progress: playerProgress,
   });
 }
 
@@ -190,20 +205,91 @@ function retryAfterSeconds(response, fallback) {
   return seconds * 1000 + randomDelay(1000, 5000);
 }
 
+async function resolvePlayerUuid(identifier) {
+  if (!identifier || typeof identifier !== "string") {
+    return null;
+  }
+
+  const trimmed = identifier.trim();
+  if (!trimmed) return null;
+
+  if (isUuid(trimmed)) {
+    return trimmed;
+  }
+
+  try {
+    const { uuid } = extractPlayerUuid(trimmed);
+    if (uuid) return uuid;
+  } catch {
+    // Not a URL containing a UUID
+  }
+
+  for (const platform of ["pc", "xbox", "playstation"]) {
+    try {
+      const url =
+        "https://r6.stats.cc/v2/profiles/search?username=" +
+        encodeURIComponent(trimmed) +
+        "&platform=" +
+        platform +
+        "&include_aliases=true&limit=10";
+
+      const { response, data } = await fetchJson(url, {
+        method: "GET",
+        headers: apiHeaders(),
+      });
+
+      if (response.ok && Array.isArray(data) && data.length > 0) {
+        // Try exact case-insensitive match first
+        for (const item of data) {
+          const profile = item.profile || item;
+          const uuid = profile.id || profile.user_id || profile.userId;
+          const uname = profile.username || profile.displayName || profile.name;
+          if (isUuid(uuid) && uname && uname.toLowerCase() === trimmed.toLowerCase()) {
+            return uuid;
+          }
+        }
+        // Fallback to first profile returned
+        const first = data[0].profile || data[0];
+        const uuid = first.id || first.user_id || first.userId;
+        if (isUuid(uuid)) {
+          return uuid;
+        }
+      }
+    } catch {
+      // Ignore and try next platform
+    }
+  }
+
+  return null;
+}
+
 async function loadMatches(
   playerUuid,
   targetMatches,
-  jobId
+  jobId,
+  label = "Loading matches",
+  baseLoaded = 0,
+  totalToFetch = targetMatches,
+  onProgress = null
 ) {
   const matches = [];
   let before = null;
 
+  const reportProgress = (loaded) => {
+    if (onProgress) {
+      onProgress(loaded);
+      return;
+    }
+
+    setProgress(jobId, baseLoaded + loaded, totalToFetch);
+  };
+
   setStatus(
     jobId,
-    `Loading ${targetMatches} matches...`
+    `${label}...`
   );
 
-  setProgress(jobId, 0, targetMatches);
+  reportProgress(0);
 
   while (matches.length < targetMatches) {
     const params = new URLSearchParams();
@@ -293,15 +379,11 @@ async function loadMatches(
       targetMatches
     );
 
-    setProgress(
-      jobId,
-      loaded,
-      targetMatches
-    );
+    reportProgress(loaded);
 
     setStatus(
       jobId,
-      `Loading matches - ${loaded} / ${targetMatches}`
+      `${label} - ${loaded} / ${targetMatches}`
     );
 
     if (matches.length < targetMatches) {
@@ -324,405 +406,38 @@ function createMatchUrls(matches, playerUuid) {
     );
 }
 
-function extractMatchId(matchUrl) {
-  let parsed;
-
-  try {
-    parsed = new URL(matchUrl);
-  } catch {
-    throw new Error(
-      `Invalid match URL: ${matchUrl}`
-    );
-  }
-
-  const parts = parsed.pathname
-    .split("/")
-    .filter(Boolean);
-
-  for (let i = 0; i < parts.length; i++) {
-    if (
-      parts[i].toLowerCase() === "matches" &&
-      parts[i + 1] &&
-      isUuid(parts[i + 1])
-    ) {
-      return parts[i + 1];
-    }
-  }
-
-  throw new Error(
-    `Could not extract match UUID from URL: ${matchUrl}`
-  );
+function buildPairKey(a, b) {
+  // Consistent key regardless of argument order
+  return [a, b].sort().join(" <> ");
 }
 
-function extractPlayersFromJson(data) {
-  const namesFound = [];
+function calculatePairwiseFrequencies(allPlayers) {
+  const pairs = [];
 
-  function addName(value) {
-    if (typeof value !== "string") {
-      return;
-    }
+  for (let i = 0; i < allPlayers.length; i++) {
+    for (let j = i + 1; j < allPlayers.length; j++) {
+      const a = allPlayers[i];
+      const b = allPlayers[j];
+      const setA = a.matchSet;
+      const setB = b.matchSet;
 
-    const name = cleanPlayerName(value);
-
-    if (!name) {
-      return;
-    }
-
-    const lower = name.toLowerCase();
-
-    if (INVALID_NAMES.has(lower)) {
-      return;
-    }
-
-    if (lower.includes("null")) {
-      return;
-    }
-
-    if (!namesFound.includes(name)) {
-      namesFound.push(name);
-    }
-  }
-
-  const nameKeys = [
-    "name",
-    "username",
-    "userName",
-    "nickname",
-    "displayName",
-    "display_name",
-    "playerName",
-    "player_name",
-    "gamertag",
-    "gameName",
-    "game_name",
-    "label",
-  ];
-
-  const idKeys = [
-    "id",
-    "uuid",
-    "playerId",
-    "player_id",
-    "profileId",
-    "profile_id",
-    "userId",
-    "user_id",
-  ];
-
-  function inspectObject(object) {
-    if (
-      !object ||
-      typeof object !== "object" ||
-      Array.isArray(object)
-    ) {
-      return;
-    }
-
-    let hasPlayerId = false;
-
-    for (const key of idKeys) {
-      if (isUuid(object[key])) {
-        hasPlayerId = true;
-        break;
-      }
-    }
-
-    if (hasPlayerId) {
-      for (const key of nameKeys) {
-        if (typeof object[key] === "string") {
-          addName(object[key]);
-          break;
-        }
-      }
-    }
-
-    if (
-      object.player &&
-      typeof object.player === "object"
-    ) {
-      inspectObject(object.player);
-    }
-  }
-
-  function walk(value) {
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        walk(item);
+      let sharedCount = 0;
+      for (const id of setA) {
+        if (setB.has(id)) sharedCount++;
       }
 
-      return;
-    }
+      const total = Math.max(setA.size, setB.size);
 
-    if (
-      !value ||
-      typeof value !== "object"
-    ) {
-      return;
-    }
-
-    inspectObject(value);
-
-    for (const child of Object.values(value)) {
-      walk(child);
-    }
-  }
-
-  walk(data);
-
-  return namesFound;
-}
-
-async function getMatchData(matchId) {
-  const url =
-    `${API_BASE}/matches/${encodeURIComponent(matchId)}`;
-
-  for (
-    let attempt = 1;
-    attempt <= MAX_RETRIES;
-    attempt++
-  ) {
-    try {
-      const { response, data } =
-        await fetchJson(url, {
-          method: "GET",
-          headers: apiHeaders(),
-        });
-
-      if (response.status === 429) {
-        const wait = retryAfterSeconds(
-          response,
-          RATE_LIMIT_WAIT
-        );
-
-        await sleep(wait);
-        continue;
-      }
-
-      if (
-        response.status === 401 ||
-        response.status === 403
-      ) {
-        throw new Error(
-          `Stats.cc rejected the match API request with HTTP ${response.status}.`
-        );
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          `Match API returned HTTP ${response.status}.`
-        );
-      }
-
-      return data;
-    } catch (error) {
-      if (attempt >= MAX_RETRIES) {
-        throw error;
-      }
-
-      await sleep(
-        ERROR_WAIT +
-        randomDelay(3000, 8000)
-      );
-    }
-  }
-
-  return null;
-}
-
-async function scrapeMatchPages(
-  matchUrls,
-  jobId
-) {
-  const allGroups = [];
-
-  const total = matchUrls.length;
-
-  setStatus(
-    jobId,
-    `Loading match player data...`
-  );
-
-  setProgress(jobId, 0, total);
-
-  for (
-    let index = 0;
-    index < matchUrls.length;
-    index++
-  ) {
-    const matchNumber = index + 1;
-    const matchUrl = matchUrls[index];
-
-    setProgress(
-      jobId,
-      matchNumber,
-      total
-    );
-
-    setStatus(
-      jobId,
-      `checking match ${matchNumber} / ${total}`
-    );
-
-    const matchId =
-      extractMatchId(matchUrl);
-
-    let namesFound = [];
-    let success = false;
-
-    for (
-      let attempt = 1;
-      attempt <= MAX_RETRIES;
-      attempt++
-    ) {
-      try {
-        const data =
-          await getMatchData(matchId);
-
-        namesFound =
-          extractPlayersFromJson(data);
-
-        success = true;
-        break;
-      } catch (error) {
-        if (attempt >= MAX_RETRIES) {
-          setStatus(
-            jobId,
-            `Match ${matchNumber} failed`
-          );
-          break;
-        }
-
-        setStatus(
-          jobId,
-          `Retrying match ${matchNumber} - ` +
-          `attempt ${attempt + 1}`
-        );
-
-        await sleep(
-          ERROR_WAIT +
-          randomDelay(3000, 8000)
-        );
-      }
-    }
-
-    allGroups.push(
-      success ? namesFound : []
-    );
-
-    if (index < matchUrls.length - 1) {
-      await sleep(
-        randomDelay(
-          MIN_DELAY,
-          MAX_DELAY
-        )
-      );
-    }
-  }
-
-  return allGroups;
-}
-
-function normalizeNames(names) {
-  return names
-    .map((name) =>
-      decodeURIComponent(
-        String(name).trim()
-      ).toLowerCase()
-    )
-    .filter(Boolean);
-}
-
-function calculateFrequencies(
-  groups,
-  names
-) {
-  const totalGroups = groups.length;
-
-  return names.map((name) => {
-    const target =
-      name.trim().toLowerCase();
-
-    let count = 0;
-
-    for (const group of groups) {
-      const lowerNames =
-        new Set(
-          group.map((value) =>
-            value.trim().toLowerCase()
-          )
-        );
-
-      if (lowerNames.has(target)) {
-        count++;
-      }
-    }
-
-    return {
-      name,
-      count,
-      percentage:
-        totalGroups > 0
-          ? (count / totalGroups) * 100
-          : 0,
-    };
-  });
-}
-
-function summarize(
-  groups,
-  names,
-  matchUrls
-) {
-  let groupsWithMatch = 0;
-  let groupsWithoutMatch = 0;
-
-  const matchingGroups = [];
-
-  for (
-    let index = 0;
-    index < groups.length;
-    index++
-  ) {
-    const group = groups[index];
-
-    const groupNames = new Set(
-      group.map((name) =>
-        name.trim().toLowerCase()
-      )
-    );
-
-    const foundNames = names.filter(
-      (name) =>
-        groupNames.has(
-          name.trim().toLowerCase()
-        )
-    );
-
-    if (foundNames.length) {
-      groupsWithMatch++;
-
-      matchingGroups.push({
-        group: index + 1,
-        names: foundNames,
+      pairs.push({
+        players: [a.name, b.name],
+        count: sharedCount,
+        total,
+        percentage: total > 0 ? (sharedCount / total) * 100 : 0,
       });
-    } else {
-      groupsWithoutMatch++;
     }
   }
 
-  return {
-    match_urls: matchUrls,
-    groups,
-    total_groups: groups.length,
-    groups_with_match: groupsWithMatch,
-    groups_without_match: groupsWithoutMatch,
-    matching_groups: matchingGroups,
-    player_frequencies:
-      calculateFrequencies(
-        groups,
-        names
-      ),
-  };
+  return pairs;
 }
 
 async function runScraper(
@@ -732,59 +447,136 @@ async function runScraper(
   targetMatches
 ) {
   try {
-    const {
-      uuid: playerUuid,
-    } = extractPlayerUuid(playerUrl);
+    // All players: main player + squad members
+    const allPlayerDefs = [
+      { label: "main player", input: playerUrl, isMain: true },
+      ...names.map((n) => ({ label: n, input: n, isMain: false })),
+    ];
 
-    setStatus(
-      jobId,
-      "Creating HTTP session..."
-    );
+    const totalToFetch = allPlayerDefs.length * targetMatches;
 
-    const matches =
-      await loadMatches(
-        playerUuid,
-        targetMatches,
-        jobId
-      );
+    updateJob(jobId, {
+      player_progress: allPlayerDefs.map((def) => ({
+        name: def.isMain ? def.input : def.label,
+        current: 0,
+        total: targetMatches,
+      })),
+    });
 
-    if (!matches.length) {
-      throw new Error(
-        "No matches were loaded."
-      );
+    setStatus(jobId, "Resolving player profiles...");
+
+    const playerData = new Array(allPlayerDefs.length); // { name, uuid, matchSet }
+    const playerProgress = new Array(allPlayerDefs.length).fill(0);
+
+    const reportPlayerProgress = (index, loaded) => {
+      playerProgress[index] = loaded;
+      setPlayerProgress(jobId, index, loaded);
+      const completed = playerProgress.reduce((sum, value) => sum + value, 0);
+      setProgress(jobId, completed, totalToFetch);
+    };
+
+    let nextPlayerIndex = 0;
+
+    async function scrapeNextPlayer() {
+      while (nextPlayerIndex < allPlayerDefs.length) {
+        const index = nextPlayerIndex++;
+        const def = allPlayerDefs[index];
+
+        setStatus(
+          jobId,
+          def.isMain
+            ? "Resolving main player profile..."
+            : `Resolving profile for ${def.label}...`
+        );
+
+        const uuid = await resolvePlayerUuid(def.input);
+
+        if (!uuid) {
+          setStatus(jobId, `Could not resolve profile for ${def.label}`);
+          playerData[index] = {
+            name: def.label,
+            uuid: null,
+            matchSet: new Set(),
+            matches: [],
+          };
+          reportPlayerProgress(index, targetMatches);
+          continue;
+        }
+
+        const matches = await loadMatches(
+          uuid,
+          targetMatches,
+          jobId,
+          def.isMain
+            ? "Loading main player matches"
+            : `Loading matches for ${def.label}`,
+          0,
+          totalToFetch,
+          (loaded) => reportPlayerProgress(index, loaded)
+        );
+
+        playerData[index] = {
+          name: def.isMain ? def.input : def.label,
+          uuid,
+          matchSet: new Set(matches.filter((m) => m && m.id).map((m) => m.id)),
+          matches,
+        };
+
+        reportPlayerProgress(index, targetMatches);
+      }
     }
 
-    const matchUrls =
-      createMatchUrls(
-        matches,
-        playerUuid
-      );
-
-    setStatus(
-      jobId,
-      `Loaded ${matchUrls.length} match URLs`
+    const workerCount = Math.min(
+      MAX_CONCURRENT_PLAYER_SCRAPES,
+      allPlayerDefs.length
     );
 
-    const allGroups =
-      await scrapeMatchPages(
-        matchUrls,
-        jobId
-      );
-
-    setStatus(
-      jobId,
-      "Calculating player frequencies..."
+    await Promise.all(
+      Array.from({ length: workerCount }, () => scrapeNextPlayer())
     );
 
-    const result =
-      summarize(
-        allGroups,
-        names,
-        matchUrls
-      );
+    const mainPlayer = playerData[0];
+
+    if (!mainPlayer || mainPlayer.matchSet.size === 0) {
+      throw new Error("No matches were loaded for the main player.");
+    }
+
+    setStatus(jobId, "Calculating pairwise frequencies...");
+
+    const pairFrequencies = calculatePairwiseFrequencies(playerData);
+
+    // Individual frequency vs main player (for backwards compat with frontend)
+    const squadNames = names;
+    const mainMatchSet = mainPlayer.matchSet;
+    const playerFrequencies = playerData.slice(1).map((p) => {
+      let count = 0;
+      for (const id of mainMatchSet) {
+        if (p.matchSet.has(id)) count++;
+      }
+      const total = mainMatchSet.size;
+      return {
+        name: p.name,
+        count,
+        percentage: total > 0 ? (count / total) * 100 : 0,
+      };
+    });
+
+    const matchUrls = createMatchUrls(mainPlayer.matches, mainPlayer.uuid);
+
+    const result = {
+      match_urls: matchUrls,
+      total_groups: mainPlayer.matchSet.size,
+      main_player: mainPlayer.name,
+      player_frequencies: playerFrequencies,
+      pair_frequencies: pairFrequencies,
+    };
 
     updateJob(jobId, {
       status: "Complete",
+      progress: {
+        current: totalToFetch,
+        total: totalToFetch,
+      },
       done: true,
       error: null,
       result,
@@ -812,51 +604,115 @@ app.use(
 );
 
 app.post("/api/feedback", async (req, res) => {
-    try {
-        const message =
-          String(req.body.message || "").trim();
+  try {
+    const message =
+      String(req.body.message || "").trim();
 
-        const deviceInfo =
-          req.body.device_info || {};
+    const deviceInfo =
+      req.body.device_info || {};
 
-        if (!message) {
-            return res.status(400).json({
-                error: "Feedback cannot be empty."
-            });
-        }
-
-        if (message.length > 2000) {
-            return res.status(400).json({
-                error: "Feedback is too long."
-            });
-        }
-
-        const { error } = await supabase
-          .from("feedback")
-          .insert({
-              message: message,
-              device_info: deviceInfo
-        });
-
-        if (error) {
-            console.error("Supabase error:", error);
-
-            return res.status(500).json({
-                error: "Failed to save feedback."
-            });
-        }
-
-        res.json({
-            success: true
-        });
-
-    } catch (error) {
-        console.error("Feedback error:", error);
-
-        res.status(500).json({
-            error: "Failed to submit feedback."
-        });
+    if (!message) {
+      return res.status(400).json({
+        error: "Feedback cannot be empty."
+      });
     }
+
+    if (message.length > 2000) {
+      return res.status(400).json({
+        error: "Feedback is too long."
+      });
+    }
+
+    if (!supabase) {
+      return res.status(500).json({
+        error: "Feedback submission is not configured."
+      });
+    }
+
+    const { error } = await supabase
+      .from("feedback")
+      .insert({
+        message: message,
+        device_info: deviceInfo
+      });
+
+    if (error) {
+      console.error("Supabase error:", error);
+
+      return res.status(500).json({
+        error: "Failed to save feedback."
+      });
+    }
+
+    res.json({
+      success: true
+    });
+
+  } catch (error) {
+    console.error("Feedback error:", error);
+
+    res.status(500).json({
+      error: "Failed to submit feedback."
+    });
+  }
+});
+
+app.get("/api/search-players", async (req, res) => {
+  const query = String(req.query.q || "").trim();
+
+  if (!query || query.length < 2) {
+    return res.json([]);
+  }
+
+  try {
+    const results = [];
+    const seenNames = new Set();
+
+    for (const platform of ["pc", "xbox", "playstation"]) {
+      try {
+        const url =
+          "https://r6.stats.cc/v2/profiles/search?username=" +
+          encodeURIComponent(query) +
+          "&platform=" +
+          platform +
+          "&include_aliases=true&limit=10";
+
+        const { response, data } = await fetchJson(url, {
+          method: "GET",
+          headers: apiHeaders(),
+        });
+
+        if (response.ok && Array.isArray(data)) {
+          for (const item of data) {
+            const profile = item.profile || item;
+            const name = profile.username || profile.displayName || profile.name;
+            const uuid = profile.id || profile.user_id || profile.userId;
+
+            if (name && !seenNames.has(name.toLowerCase())) {
+              seenNames.add(name.toLowerCase());
+              results.push({
+                name,
+                uuid: uuid || null,
+                platform: profile.platform || platform,
+                level: profile.level || null,
+              });
+            }
+          }
+        }
+      } catch {
+        // Continue to next platform if error
+      }
+
+      if (results.length >= 10) break;
+    }
+
+    return res.json(results.slice(0, 10));
+  } catch (error) {
+    console.error("Player search error:", error);
+    return res.status(500).json({
+      error: "Failed to search players."
+    });
+  }
 });
 
 app.get("/", (req, res) => {
@@ -877,11 +733,11 @@ app.post("/api/start", (req, res) => {
 
   const names = Array.isArray(data.names)
     ? data.names
-        .map((name) =>
-          String(name || "").trim()
-        )
-        .filter(Boolean)
-        .slice(0, 5)
+      .map((name) =>
+        String(name || "").trim()
+      )
+      .filter(Boolean)
+      .slice(0, 5)
     : [];
 
   let targetMatches =
@@ -913,22 +769,22 @@ app.post("/api/start", (req, res) => {
     });
   }
 
-  try {
-    extractPlayerUuid(playerUrl);
-  } catch (error) {
-    return res.status(400).json({
-      error: error.message,
-    });
-  }
-
-  const jobId =
-    crypto.randomUUID();
+  const jobId = crypto.randomUUID();
+  const totalToFetch = (1 + names.length) * targetMatches;
 
   JOBS.set(jobId, {
     status: "Starting...",
+    player_progress: [
+      { name: playerUrl, current: 0, total: targetMatches },
+      ...names.map((name) => ({
+        name,
+        current: 0,
+        total: targetMatches,
+      })),
+    ],
     progress: {
       current: 0,
-      total: targetMatches,
+      total: totalToFetch,
     },
     done: false,
     error: null,
@@ -961,6 +817,7 @@ app.get(
 
     return res.json({
       status: job.status,
+      player_progress: job.player_progress,
       progress: job.progress,
       done: job.done,
       error: job.error,
@@ -1011,5 +868,5 @@ setInterval(() => {
 }, 10 * 60 * 1000);
 
 app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Rainbow Six Match Checker running on port ${PORT}`);
+  console.log(`Rainbow Six Match Checker running on port ${PORT}`);
 });
