@@ -26,6 +26,7 @@ const MAX_RETRIES = 6;
 const RATE_LIMIT_WAIT = 20000;
 const ERROR_WAIT = 15000;
 const DEFAULT_TARGET_MATCHES = 50;
+const MAX_CONCURRENT_PLAYER_SCRAPES = 3;
 
 const UUID_PATTERN =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -253,17 +254,27 @@ async function loadMatches(
   jobId,
   label = "Loading matches",
   baseLoaded = 0,
-  totalToFetch = targetMatches
+  totalToFetch = targetMatches,
+  onProgress = null
 ) {
   const matches = [];
   let before = null;
+
+  const reportProgress = (loaded) => {
+    if (onProgress) {
+      onProgress(loaded);
+      return;
+    }
+
+    setProgress(jobId, baseLoaded + loaded, totalToFetch);
+  };
 
   setStatus(
     jobId,
     `${label}...`
   );
 
-  setProgress(jobId, baseLoaded, totalToFetch);
+  reportProgress(0);
 
   while (matches.length < targetMatches) {
     const params = new URLSearchParams();
@@ -353,11 +364,7 @@ async function loadMatches(
       targetMatches
     );
 
-    setProgress(
-      jobId,
-      baseLoaded + loaded,
-      totalToFetch
-    );
+    reportProgress(loaded);
 
     setStatus(
       jobId,
@@ -436,53 +443,74 @@ async function runScraper(
 
     setStatus(jobId, "Resolving player profiles...");
 
-    const playerData = []; // { name, uuid, matchSet }
+    const playerData = new Array(allPlayerDefs.length); // { name, uuid, matchSet }
+    const playerProgress = new Array(allPlayerDefs.length).fill(0);
 
-    for (const def of allPlayerDefs) {
-      setStatus(
-        jobId,
-        def.isMain
-          ? "Resolving main player profile..."
-          : `Resolving profile for ${def.label}...`
-      );
+    const reportPlayerProgress = (index, loaded) => {
+      playerProgress[index] = loaded;
+      const completed = playerProgress.reduce((sum, value) => sum + value, 0);
+      setProgress(jobId, completed, totalToFetch);
+    };
 
-      const uuid = await resolvePlayerUuid(def.input);
+    let nextPlayerIndex = 0;
 
-      if (!uuid) {
-        setStatus(jobId, `Could not resolve profile for ${def.label}`);
-        playerData.push({
-          name: def.label,
-          uuid: null,
-          matchSet: new Set(),
-          matches: [],
-        });
-        baseLoaded += targetMatches;
-        setProgress(jobId, baseLoaded, totalToFetch);
-        await sleep(500);
-        continue;
+    async function scrapeNextPlayer() {
+      while (nextPlayerIndex < allPlayerDefs.length) {
+        const index = nextPlayerIndex++;
+        const def = allPlayerDefs[index];
+
+        setStatus(
+          jobId,
+          def.isMain
+            ? "Resolving main player profile..."
+            : `Resolving profile for ${def.label}...`
+        );
+
+        const uuid = await resolvePlayerUuid(def.input);
+
+        if (!uuid) {
+          setStatus(jobId, `Could not resolve profile for ${def.label}`);
+          playerData[index] = {
+            name: def.label,
+            uuid: null,
+            matchSet: new Set(),
+            matches: [],
+          };
+          reportPlayerProgress(index, targetMatches);
+          continue;
+        }
+
+        const matches = await loadMatches(
+          uuid,
+          targetMatches,
+          jobId,
+          def.isMain
+            ? "Loading main player matches"
+            : `Loading matches for ${def.label}`,
+          0,
+          totalToFetch,
+          (loaded) => reportPlayerProgress(index, loaded)
+        );
+
+        playerData[index] = {
+          name: def.isMain ? def.input : def.label,
+          uuid,
+          matchSet: new Set(matches.filter((m) => m && m.id).map((m) => m.id)),
+          matches,
+        };
+
+        reportPlayerProgress(index, targetMatches);
       }
-
-      const matches = await loadMatches(
-        uuid,
-        targetMatches,
-        jobId,
-        def.isMain
-          ? "Loading main player matches"
-          : `Loading matches for ${def.label}`,
-        baseLoaded,
-        totalToFetch
-      );
-
-      playerData.push({
-        name: def.isMain ? def.input : def.label,
-        uuid,
-        matchSet: new Set(matches.filter((m) => m && m.id).map((m) => m.id)),
-        matches,
-      });
-
-      baseLoaded += targetMatches;
-      setProgress(jobId, baseLoaded, totalToFetch);
     }
+
+    const workerCount = Math.min(
+      MAX_CONCURRENT_PLAYER_SCRAPES,
+      allPlayerDefs.length
+    );
+
+    await Promise.all(
+      Array.from({ length: workerCount }, () => scrapeNextPlayer())
+    );
 
     const mainPlayer = playerData[0];
 
