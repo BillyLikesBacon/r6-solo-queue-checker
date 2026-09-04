@@ -384,97 +384,48 @@ function createMatchUrls(matches, playerUuid) {
     );
 }
 
-function calculateFrequencies(
-  groups,
-  names
-) {
-  const totalGroups = groups.length;
-
-  return names.map((name) => {
-    const target =
-      name.trim().toLowerCase();
-
-    let count = 0;
-
-    for (const group of groups) {
-      const lowerNames =
-        new Set(
-          group.map((value) =>
-            value.trim().toLowerCase()
-          )
-        );
-
-      if (lowerNames.has(target)) {
-        count++;
-      }
-    }
-
-    return {
-      name,
-      count,
-      percentage:
-        totalGroups > 0
-          ? (count / totalGroups) * 100
-          : 0,
-    };
-  });
+function buildPairKey(a, b) {
+  // Consistent key regardless of argument order
+  return [a, b].sort().join(" <> ");
 }
 
-function summarize(
-  groups,
-  names,
-  matchUrls
-) {
-  let groupsWithMatch = 0;
-  let groupsWithoutMatch = 0;
+function calculatePairwiseFrequencies(allPlayers, matchSets) {
+  const pairs = [];
 
-  const matchingGroups = [];
+  for (let i = 0; i < allPlayers.length; i++) {
+    for (let j = i + 1; j < allPlayers.length; j++) {
+      const a = allPlayers[i];
+      const b = allPlayers[j];
+      const setA = matchSets[a];
+      const setB = matchSets[b];
 
-  for (
-    let index = 0;
-    index < groups.length;
-    index++
-  ) {
-    const group = groups[index];
+      if (!setA || !setB) {
+        pairs.push({
+          players: [a.name, b.name],
+          count: 0,
+          total: 0,
+          percentage: 0,
+        });
+        continue;
+      }
 
-    const groupNames = new Set(
-      group.map((name) =>
-        name.trim().toLowerCase()
-      )
-    );
+      let sharedCount = 0;
+      for (const id of setA) {
+        if (setB.has(id)) sharedCount++;
+      }
 
-    const foundNames = names.filter(
-      (name) =>
-        groupNames.has(
-          name.trim().toLowerCase()
-        )
-    );
+      const total = Math.max(setA.size, setB.size);
 
-    if (foundNames.length) {
-      groupsWithMatch++;
-
-      matchingGroups.push({
-        group: index + 1,
-        names: foundNames,
+      pairs.push({
+        players: [a.name, b.name],
+        count: sharedCount,
+        total,
+        percentage: total > 0 ? (sharedCount / total) * 100 : 0,
       });
-    } else {
-      groupsWithoutMatch++;
     }
   }
 
-  return {
-    match_urls: matchUrls,
-    groups,
-    total_groups: groups.length,
-    groups_with_match: groupsWithMatch,
-    groups_without_match: groupsWithoutMatch,
-    matching_groups: matchingGroups,
-    player_frequencies:
-      calculateFrequencies(
-        groups,
-        names
-      ),
-  };
+  return pairs;
 }
 
 async function runScraper(
@@ -484,107 +435,106 @@ async function runScraper(
   targetMatches
 ) {
   try {
-    setStatus(
-      jobId,
-      "Resolving main player profile..."
-    );
+    // All players: main player + squad members
+    const allPlayerDefs = [
+      { label: "main player", input: playerUrl, isMain: true },
+      ...names.map((n) => ({ label: n, input: n, isMain: false })),
+    ];
 
-    const mainUuid = await resolvePlayerUuid(playerUrl);
-
-    if (!mainUuid) {
-      throw new Error(
-        "Could not resolve main player profile or UUID."
-      );
-    }
-
-    const totalToFetch = (1 + names.length) * targetMatches;
+    const totalToFetch = allPlayerDefs.length * targetMatches;
     let baseLoaded = 0;
 
-    const mainMatches = await loadMatches(
-      mainUuid,
-      targetMatches,
-      jobId,
-      "Loading main player matches",
-      baseLoaded,
-      totalToFetch
-    );
+    setStatus(jobId, "Resolving player profiles...");
 
-    if (!mainMatches.length) {
-      throw new Error(
-        "No matches were loaded for the main player."
-      );
-    }
+    const playerData = []; // { name, uuid, matchSet }
 
-    baseLoaded += targetMatches;
-    setProgress(jobId, baseLoaded, totalToFetch);
-
-    const squadMatchSets = {};
-
-    for (const name of names) {
+    for (const def of allPlayerDefs) {
       setStatus(
         jobId,
-        `Resolving profile for ${name}...`
+        def.isMain
+          ? "Resolving main player profile..."
+          : `Resolving profile for ${def.label}...`
       );
 
-      const squadUuid = await resolvePlayerUuid(name);
+      const uuid = await resolvePlayerUuid(def.input);
 
-      if (!squadUuid) {
-        setStatus(
-          jobId,
-          `Could not resolve profile for ${name}`
-        );
-        squadMatchSets[name] = new Set();
+      if (!uuid) {
+        setStatus(jobId, `Could not resolve profile for ${def.label}`);
+        playerData.push({
+          name: def.label,
+          uuid: null,
+          matchSet: new Set(),
+          matches: [],
+        });
         baseLoaded += targetMatches;
         setProgress(jobId, baseLoaded, totalToFetch);
         await sleep(500);
         continue;
       }
 
-      const squadMatches = await loadMatches(
-        squadUuid,
+      const matches = await loadMatches(
+        uuid,
         targetMatches,
         jobId,
-        `Loading matches for ${name}`,
+        def.isMain
+          ? "Loading main player matches"
+          : `Loading matches for ${def.label}`,
         baseLoaded,
         totalToFetch
       );
 
-      squadMatchSets[name] = new Set(
-        squadMatches
-          .filter((m) => m && m.id)
-          .map((m) => m.id)
-      );
+      playerData.push({
+        name: def.isMain ? def.input : def.label,
+        uuid,
+        matchSet: new Set(matches.filter((m) => m && m.id).map((m) => m.id)),
+        matches,
+      });
 
       baseLoaded += targetMatches;
       setProgress(jobId, baseLoaded, totalToFetch);
     }
 
-    const matchUrls = createMatchUrls(mainMatches, mainUuid);
+    const mainPlayer = playerData[0];
 
-    const allGroups = mainMatches.map((match) => {
-      const matchId = match.id;
-      const foundInMatch = [];
+    if (!mainPlayer || mainPlayer.matchSet.size === 0) {
+      throw new Error("No matches were loaded for the main player.");
+    }
 
-      for (const name of names) {
-        const set = squadMatchSets[name];
-        if (set && set.has(matchId)) {
-          foundInMatch.push(name);
-        }
+    setStatus(jobId, "Calculating pairwise frequencies...");
+
+    // Build a matchSets map keyed by name for pair calculation
+    const matchSetsMap = {};
+    for (const p of playerData) {
+      matchSetsMap[p.name] = p.matchSet;
+    }
+
+    const pairFrequencies = calculatePairwiseFrequencies(playerData, matchSetsMap);
+
+    // Individual frequency vs main player (for backwards compat with frontend)
+    const squadNames = names;
+    const mainMatchSet = mainPlayer.matchSet;
+    const playerFrequencies = playerData.slice(1).map((p) => {
+      let count = 0;
+      for (const id of mainMatchSet) {
+        if (p.matchSet.has(id)) count++;
       }
-
-      return foundInMatch;
+      const total = mainMatchSet.size;
+      return {
+        name: p.name,
+        count,
+        percentage: total > 0 ? (count / total) * 100 : 0,
+      };
     });
 
-    setStatus(
-      jobId,
-      "Calculating player frequencies..."
-    );
+    const matchUrls = createMatchUrls(mainPlayer.matches, mainPlayer.uuid);
 
-    const result = summarize(
-      allGroups,
-      names,
-      matchUrls
-    );
+    const result = {
+      match_urls: matchUrls,
+      total_groups: mainPlayer.matchSet.size,
+      main_player: mainPlayer.name,
+      player_frequencies: playerFrequencies,
+      pair_frequencies: pairFrequencies,
+    };
 
     updateJob(jobId, {
       status: "Complete",

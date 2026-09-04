@@ -464,6 +464,59 @@ input[type="range"]:focus-visible {
   font-weight: 400;
 }
 
+.pair-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 6px;
+  padding: 0 12px 12px;
+}
+
+.pair-box {
+  background: var(--input);
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.pair-box.empty {
+  opacity: 0.45;
+}
+
+.pair-names {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.pair-player {
+  color: var(--text);
+}
+
+.pair-sep {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.pair-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.pair-pct {
+  color: var(--text);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.pair-count {
+  color: var(--muted);
+  font-size: 10px;
+}
+
 .groups-list {
   max-height: 320px;
   overflow-y: auto;
