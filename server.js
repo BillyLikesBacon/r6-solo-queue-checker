@@ -208,13 +208,14 @@ async function resolvePlayerUuid(identifier) {
     // Not a URL containing a UUID
   }
 
-  for (const platform of ["uplay", "xbl", "psn"]) {
+  for (const platform of ["pc", "xbox", "playstation"]) {
     try {
       const url =
-        "https://r6.stats.cc/search?displayName=" +
+        "https://r6.stats.cc/v2/profiles/search?username=" +
         encodeURIComponent(trimmed) +
         "&platform=" +
-        platform;
+        platform +
+        "&include_aliases=true&limit=10";
 
       const { response, data } = await fetchJson(url, {
         method: "GET",
@@ -222,8 +223,18 @@ async function resolvePlayerUuid(identifier) {
       });
 
       if (response.ok && Array.isArray(data) && data.length > 0) {
-        const first = data[0];
-        const uuid = first.userId || first.profileId || first.id;
+        // Try exact case-insensitive match first
+        for (const item of data) {
+          const profile = item.profile || item;
+          const uuid = profile.id || profile.user_id || profile.userId;
+          const uname = profile.username || profile.displayName || profile.name;
+          if (isUuid(uuid) && uname && uname.toLowerCase() === trimmed.toLowerCase()) {
+            return uuid;
+          }
+        }
+        // Fallback to first profile returned
+        const first = data[0].profile || data[0];
+        const uuid = first.id || first.user_id || first.userId;
         if (isUuid(uuid)) {
           return uuid;
         }
@@ -672,13 +683,14 @@ app.get("/api/search-players", async (req, res) => {
     const results = [];
     const seenNames = new Set();
 
-    for (const platform of ["uplay", "xbl", "psn"]) {
+    for (const platform of ["pc", "xbox", "playstation"]) {
       try {
         const url =
-          "https://r6.stats.cc/search?displayName=" +
+          "https://r6.stats.cc/v2/profiles/search?username=" +
           encodeURIComponent(query) +
           "&platform=" +
-          platform;
+          platform +
+          "&include_aliases=true&limit=10";
 
         const { response, data } = await fetchJson(url, {
           method: "GET",
@@ -687,16 +699,17 @@ app.get("/api/search-players", async (req, res) => {
 
         if (response.ok && Array.isArray(data)) {
           for (const item of data) {
-            const name = item.displayName || item.name;
-            const uuid = item.userId || item.profileId || item.id;
+            const profile = item.profile || item;
+            const name = profile.username || profile.displayName || profile.name;
+            const uuid = profile.id || profile.user_id || profile.userId;
 
             if (name && !seenNames.has(name.toLowerCase())) {
               seenNames.add(name.toLowerCase());
               results.push({
                 name,
                 uuid: uuid || null,
-                platform: item.platform || platform,
-                level: item.level || null,
+                platform: profile.platform || platform,
+                level: profile.level || null,
               });
             }
           }
@@ -705,10 +718,10 @@ app.get("/api/search-players", async (req, res) => {
         // Continue to next platform if error
       }
 
-      if (results.length >= 8) break;
+      if (results.length >= 10) break;
     }
 
-    return res.json(results.slice(0, 8));
+    return res.json(results.slice(0, 10));
   } catch (error) {
     console.error("Player search error:", error);
     return res.status(500).json({
