@@ -45,12 +45,9 @@ const INVALID_NAMES = new Set([
 
 const JOBS = new Map();
 
-const { createClient } = require("@supabase/supabase-js");
-
-const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_KEY
-);
+const supabase = (process.env.SUPABASE_URL && process.env.SUPABASE_KEY)
+  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY)
+  : null;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -190,20 +187,70 @@ function retryAfterSeconds(response, fallback) {
   return seconds * 1000 + randomDelay(1000, 5000);
 }
 
+async function resolvePlayerUuid(identifier) {
+  if (!identifier || typeof identifier !== "string") {
+    return null;
+  }
+
+  const trimmed = identifier.trim();
+  if (!trimmed) return null;
+
+  if (isUuid(trimmed)) {
+    return trimmed;
+  }
+
+  try {
+    const { uuid } = extractPlayerUuid(trimmed);
+    if (uuid) return uuid;
+  } catch {
+    // Not a URL containing a UUID
+  }
+
+  for (const platform of ["uplay", "xbl", "psn"]) {
+    try {
+      const url =
+        "https://r6.stats.cc/search?displayName=" +
+        encodeURIComponent(trimmed) +
+        "&platform=" +
+        platform;
+
+      const { response, data } = await fetchJson(url, {
+        method: "GET",
+        headers: apiHeaders(),
+      });
+
+      if (response.ok && Array.isArray(data) && data.length > 0) {
+        const first = data[0];
+        const uuid = first.userId || first.profileId || first.id;
+        if (isUuid(uuid)) {
+          return uuid;
+        }
+      }
+    } catch {
+      // Ignore and try next platform
+    }
+  }
+
+  return null;
+}
+
 async function loadMatches(
   playerUuid,
   targetMatches,
-  jobId
+  jobId,
+  label = "Loading matches",
+  baseLoaded = 0,
+  totalToFetch = targetMatches
 ) {
   const matches = [];
   let before = null;
 
   setStatus(
     jobId,
-    `Loading ${targetMatches} matches...`
+    `${label}...`
   );
 
-  setProgress(jobId, 0, targetMatches);
+  setProgress(jobId, baseLoaded, totalToFetch);
 
   while (matches.length < targetMatches) {
     const params = new URLSearchParams();
@@ -295,13 +342,13 @@ async function loadMatches(
 
     setProgress(
       jobId,
-      loaded,
-      targetMatches
+      baseLoaded + loaded,
+      totalToFetch
     );
 
     setStatus(
       jobId,
-      `Loading matches - ${loaded} / ${targetMatches}`
+      `${label} - ${loaded} / ${targetMatches}`
     );
 
     if (matches.length < targetMatches) {
@@ -322,314 +369,6 @@ function createMatchUrls(matches, playerUuid) {
         `${SITE_URL}/siege/matches/${match.id}` +
         `?originId=${playerUuid}`
     );
-}
-
-function extractMatchId(matchUrl) {
-  let parsed;
-
-  try {
-    parsed = new URL(matchUrl);
-  } catch {
-    throw new Error(
-      `Invalid match URL: ${matchUrl}`
-    );
-  }
-
-  const parts = parsed.pathname
-    .split("/")
-    .filter(Boolean);
-
-  for (let i = 0; i < parts.length; i++) {
-    if (
-      parts[i].toLowerCase() === "matches" &&
-      parts[i + 1] &&
-      isUuid(parts[i + 1])
-    ) {
-      return parts[i + 1];
-    }
-  }
-
-  throw new Error(
-    `Could not extract match UUID from URL: ${matchUrl}`
-  );
-}
-
-function extractPlayersFromJson(data) {
-  const namesFound = [];
-
-  function addName(value) {
-    if (typeof value !== "string") {
-      return;
-    }
-
-    const name = cleanPlayerName(value);
-
-    if (!name) {
-      return;
-    }
-
-    const lower = name.toLowerCase();
-
-    if (INVALID_NAMES.has(lower)) {
-      return;
-    }
-
-    if (lower.includes("null")) {
-      return;
-    }
-
-    if (!namesFound.includes(name)) {
-      namesFound.push(name);
-    }
-  }
-
-  const nameKeys = [
-    "name",
-    "username",
-    "userName",
-    "nickname",
-    "displayName",
-    "display_name",
-    "playerName",
-    "player_name",
-    "gamertag",
-    "gameName",
-    "game_name",
-    "label",
-  ];
-
-  const idKeys = [
-    "id",
-    "uuid",
-    "playerId",
-    "player_id",
-    "profileId",
-    "profile_id",
-    "userId",
-    "user_id",
-  ];
-
-  function inspectObject(object) {
-    if (
-      !object ||
-      typeof object !== "object" ||
-      Array.isArray(object)
-    ) {
-      return;
-    }
-
-    let hasPlayerId = false;
-
-    for (const key of idKeys) {
-      if (isUuid(object[key])) {
-        hasPlayerId = true;
-        break;
-      }
-    }
-
-    if (hasPlayerId) {
-      for (const key of nameKeys) {
-        if (typeof object[key] === "string") {
-          addName(object[key]);
-          break;
-        }
-      }
-    }
-
-    if (
-      object.player &&
-      typeof object.player === "object"
-    ) {
-      inspectObject(object.player);
-    }
-  }
-
-  function walk(value) {
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        walk(item);
-      }
-
-      return;
-    }
-
-    if (
-      !value ||
-      typeof value !== "object"
-    ) {
-      return;
-    }
-
-    inspectObject(value);
-
-    for (const child of Object.values(value)) {
-      walk(child);
-    }
-  }
-
-  walk(data);
-
-  return namesFound;
-}
-
-async function getMatchData(matchId) {
-  const url =
-    `${API_BASE}/matches/${encodeURIComponent(matchId)}`;
-
-  for (
-    let attempt = 1;
-    attempt <= MAX_RETRIES;
-    attempt++
-  ) {
-    try {
-      const { response, data } =
-        await fetchJson(url, {
-          method: "GET",
-          headers: apiHeaders(),
-        });
-
-      if (response.status === 429) {
-        const wait = retryAfterSeconds(
-          response,
-          RATE_LIMIT_WAIT
-        );
-
-        await sleep(wait);
-        continue;
-      }
-
-      if (
-        response.status === 401 ||
-        response.status === 403
-      ) {
-        throw new Error(
-          `Stats.cc rejected the match API request with HTTP ${response.status}.`
-        );
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          `Match API returned HTTP ${response.status}.`
-        );
-      }
-
-      return data;
-    } catch (error) {
-      if (attempt >= MAX_RETRIES) {
-        throw error;
-      }
-
-      await sleep(
-        ERROR_WAIT +
-        randomDelay(3000, 8000)
-      );
-    }
-  }
-
-  return null;
-}
-
-async function scrapeMatchPages(
-  matchUrls,
-  jobId
-) {
-  const allGroups = [];
-
-  const total = matchUrls.length;
-
-  setStatus(
-    jobId,
-    `Loading match player data...`
-  );
-
-  setProgress(jobId, 0, total);
-
-  for (
-    let index = 0;
-    index < matchUrls.length;
-    index++
-  ) {
-    const matchNumber = index + 1;
-    const matchUrl = matchUrls[index];
-
-    setProgress(
-      jobId,
-      matchNumber,
-      total
-    );
-
-    setStatus(
-      jobId,
-      `checking match ${matchNumber} / ${total}`
-    );
-
-    const matchId =
-      extractMatchId(matchUrl);
-
-    let namesFound = [];
-    let success = false;
-
-    for (
-      let attempt = 1;
-      attempt <= MAX_RETRIES;
-      attempt++
-    ) {
-      try {
-        const data =
-          await getMatchData(matchId);
-
-        namesFound =
-          extractPlayersFromJson(data);
-
-        success = true;
-        break;
-      } catch (error) {
-        if (attempt >= MAX_RETRIES) {
-          setStatus(
-            jobId,
-            `Match ${matchNumber} failed`
-          );
-          break;
-        }
-
-        setStatus(
-          jobId,
-          `Retrying match ${matchNumber} - ` +
-          `attempt ${attempt + 1}`
-        );
-
-        await sleep(
-          ERROR_WAIT +
-          randomDelay(3000, 8000)
-        );
-      }
-    }
-
-    allGroups.push(
-      success ? namesFound : []
-    );
-
-    if (index < matchUrls.length - 1) {
-      await sleep(
-        randomDelay(
-          MIN_DELAY,
-          MAX_DELAY
-        )
-      );
-    }
-  }
-
-  return allGroups;
-}
-
-function normalizeNames(names) {
-  return names
-    .map((name) =>
-      decodeURIComponent(
-        String(name).trim()
-      ).toLowerCase()
-    )
-    .filter(Boolean);
 }
 
 function calculateFrequencies(
@@ -732,59 +471,114 @@ async function runScraper(
   targetMatches
 ) {
   try {
-    const {
-      uuid: playerUuid,
-    } = extractPlayerUuid(playerUrl);
-
     setStatus(
       jobId,
-      "Creating HTTP session..."
+      "Resolving main player profile..."
     );
 
-    const matches =
-      await loadMatches(
-        playerUuid,
-        targetMatches,
-        jobId
-      );
+    const mainUuid = await resolvePlayerUuid(playerUrl);
 
-    if (!matches.length) {
+    if (!mainUuid) {
       throw new Error(
-        "No matches were loaded."
+        "Could not resolve main player profile or UUID."
       );
     }
 
-    const matchUrls =
-      createMatchUrls(
-        matches,
-        playerUuid
-      );
+    const totalToFetch = (1 + names.length) * targetMatches;
+    let baseLoaded = 0;
 
-    setStatus(
+    const mainMatches = await loadMatches(
+      mainUuid,
+      targetMatches,
       jobId,
-      `Loaded ${matchUrls.length} match URLs`
+      "Loading main player matches",
+      baseLoaded,
+      totalToFetch
     );
 
-    const allGroups =
-      await scrapeMatchPages(
-        matchUrls,
-        jobId
+    if (!mainMatches.length) {
+      throw new Error(
+        "No matches were loaded for the main player."
       );
+    }
+
+    baseLoaded += targetMatches;
+    setProgress(jobId, baseLoaded, totalToFetch);
+
+    const squadMatchSets = {};
+
+    for (const name of names) {
+      setStatus(
+        jobId,
+        `Resolving profile for ${name}...`
+      );
+
+      const squadUuid = await resolvePlayerUuid(name);
+
+      if (!squadUuid) {
+        setStatus(
+          jobId,
+          `Could not resolve profile for ${name}`
+        );
+        squadMatchSets[name] = new Set();
+        baseLoaded += targetMatches;
+        setProgress(jobId, baseLoaded, totalToFetch);
+        await sleep(500);
+        continue;
+      }
+
+      const squadMatches = await loadMatches(
+        squadUuid,
+        targetMatches,
+        jobId,
+        `Loading matches for ${name}`,
+        baseLoaded,
+        totalToFetch
+      );
+
+      squadMatchSets[name] = new Set(
+        squadMatches
+          .filter((m) => m && m.id)
+          .map((m) => m.id)
+      );
+
+      baseLoaded += targetMatches;
+      setProgress(jobId, baseLoaded, totalToFetch);
+    }
+
+    const matchUrls = createMatchUrls(mainMatches, mainUuid);
+
+    const allGroups = mainMatches.map((match) => {
+      const matchId = match.id;
+      const foundInMatch = [];
+
+      for (const name of names) {
+        const set = squadMatchSets[name];
+        if (set && set.has(matchId)) {
+          foundInMatch.push(name);
+        }
+      }
+
+      return foundInMatch;
+    });
 
     setStatus(
       jobId,
       "Calculating player frequencies..."
     );
 
-    const result =
-      summarize(
-        allGroups,
-        names,
-        matchUrls
-      );
+    const result = summarize(
+      allGroups,
+      names,
+      matchUrls
+    );
 
     updateJob(jobId, {
       status: "Complete",
+      progress: {
+        current: totalToFetch,
+        total: totalToFetch,
+      },
       done: true,
       error: null,
       result,
@@ -812,51 +606,57 @@ app.use(
 );
 
 app.post("/api/feedback", async (req, res) => {
-    try {
-        const message =
-          String(req.body.message || "").trim();
+  try {
+    const message =
+      String(req.body.message || "").trim();
 
-        const deviceInfo =
-          req.body.device_info || {};
+    const deviceInfo =
+      req.body.device_info || {};
 
-        if (!message) {
-            return res.status(400).json({
-                error: "Feedback cannot be empty."
-            });
-        }
-
-        if (message.length > 2000) {
-            return res.status(400).json({
-                error: "Feedback is too long."
-            });
-        }
-
-        const { error } = await supabase
-          .from("feedback")
-          .insert({
-              message: message,
-              device_info: deviceInfo
-        });
-
-        if (error) {
-            console.error("Supabase error:", error);
-
-            return res.status(500).json({
-                error: "Failed to save feedback."
-            });
-        }
-
-        res.json({
-            success: true
-        });
-
-    } catch (error) {
-        console.error("Feedback error:", error);
-
-        res.status(500).json({
-            error: "Failed to submit feedback."
-        });
+    if (!message) {
+      return res.status(400).json({
+        error: "Feedback cannot be empty."
+      });
     }
+
+    if (message.length > 2000) {
+      return res.status(400).json({
+        error: "Feedback is too long."
+      });
+    }
+
+    if (!supabase) {
+      return res.status(500).json({
+        error: "Feedback submission is not configured."
+      });
+    }
+
+    const { error } = await supabase
+      .from("feedback")
+      .insert({
+        message: message,
+        device_info: deviceInfo
+      });
+
+    if (error) {
+      console.error("Supabase error:", error);
+
+      return res.status(500).json({
+        error: "Failed to save feedback."
+      });
+    }
+
+    res.json({
+      success: true
+    });
+
+  } catch (error) {
+    console.error("Feedback error:", error);
+
+    res.status(500).json({
+      error: "Failed to submit feedback."
+    });
+  }
 });
 
 app.get("/", (req, res) => {
@@ -877,11 +677,11 @@ app.post("/api/start", (req, res) => {
 
   const names = Array.isArray(data.names)
     ? data.names
-        .map((name) =>
-          String(name || "").trim()
-        )
-        .filter(Boolean)
-        .slice(0, 5)
+      .map((name) =>
+        String(name || "").trim()
+      )
+      .filter(Boolean)
+      .slice(0, 5)
     : [];
 
   let targetMatches =
@@ -913,22 +713,14 @@ app.post("/api/start", (req, res) => {
     });
   }
 
-  try {
-    extractPlayerUuid(playerUrl);
-  } catch (error) {
-    return res.status(400).json({
-      error: error.message,
-    });
-  }
-
-  const jobId =
-    crypto.randomUUID();
+  const jobId = crypto.randomUUID();
+  const totalToFetch = (1 + names.length) * targetMatches;
 
   JOBS.set(jobId, {
     status: "Starting...",
     progress: {
       current: 0,
-      total: targetMatches,
+      total: totalToFetch,
     },
     done: false,
     error: null,
@@ -1011,5 +803,5 @@ setInterval(() => {
 }, 10 * 60 * 1000);
 
 app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Rainbow Six Match Checker running on port ${PORT}`);
+  console.log(`Rainbow Six Match Checker running on port ${PORT}`);
 });

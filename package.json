@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
-    "express": "4.21.2"
+    "express": "4.21.2",
+    "ipaddr.js": "^2.5.0"
   }
 }
