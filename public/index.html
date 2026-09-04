@@ -654,7 +654,7 @@
 
         function renderResults(data) {
 
-            const totalPlayers = 1 + (data.player_frequencies ? data.player_frequencies.length : 0);
+            const pairCount = data.pair_frequencies ? data.pair_frequencies.length : 0;
 
             const stats = `
 
@@ -663,45 +663,72 @@
             <div class="stat-cards">
 
                 <div class="stat-card">
-                    <div class="stat-title">Main Player Matches Checked</div>
-                    <div class="stat-value">${data.total_groups}</div>
+
+                    <div class="stat-title">
+                        Main Player Matches Checked
+                    </div>
+
+                    <div class="stat-value">
+                        ${data.total_groups}
+                    </div>
+
                 </div>
 
-                <div class="stat-card">
-                    <div class="stat-title">Players in Squad</div>
-                    <div class="stat-value">${totalPlayers}</div>
-                </div>
 
                 <div class="stat-card">
-                    <div class="stat-title">Pairs Compared</div>
-                    <div class="stat-value">${data.pair_frequencies ? data.pair_frequencies.length : 0}</div>
+
+                    <div class="stat-title">
+                        Squad Members
+                    </div>
+
+                    <div class="stat-value">
+                        ${data.player_frequencies ? data.player_frequencies.length : 0}
+                    </div>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <div class="stat-title">
+                        Pairs Compared
+                    </div>
+
+                    <div class="stat-value">
+                        ${pairCount}
+                    </div>
+
                 </div>
 
             </div>
 
 
             <div class="freq-heading">
-                Squad Co-Play Breakdown
+                Player Frequency
             </div>
+
 
             <div class="freq-subheading">
-                Each player's frequency with everyone else in the squad
+                Every player gets a section showing how often they queued with the rest of the group
             </div>
 
-            <div id="player-sections"></div>
+
+            <div id="player-sections" class="player-sections"></div>
 
         </section>
 
     `;
 
+
             results.innerHTML = stats;
+
             renderPlayerSections(data);
 
         }
 
 
         // =====================================
-        // RENDER PLAYER SECTIONS
+        // RENDER PLAYER FREQUENCY SECTIONS
         // =====================================
 
         function renderPlayerSections(data) {
@@ -711,54 +738,40 @@
             container.innerHTML = "";
 
             const pairs = data.pair_frequencies;
+
             if (!pairs || pairs.length === 0) {
-                container.innerHTML = `<div class="no-matches" style="padding:12px 18px">No data available.</div>`;
+                container.innerHTML = `<div class="no-matches">No player frequency data available.</div>`;
                 return;
             }
 
-            // Collect all unique player names
-            const playerSet = new Set();
-            for (const pair of pairs) {
-                playerSet.add(pair.players[0]);
-                playerSet.add(pair.players[1]);
-            }
-            const allPlayers = [...playerSet];
+            const players = [...new Set(pairs.flatMap(pair => pair.players))];
 
-            // Build lookup: playerName -> list of { other, count, total, percentage }
-            const lookup = {};
-            for (const name of allPlayers) lookup[name] = [];
-
-            for (const pair of pairs) {
-                const [p1, p2] = pair.players;
-                lookup[p1].push({ other: p2, count: pair.count, total: pair.total, percentage: pair.percentage });
-                lookup[p2].push({ other: p1, count: pair.count, total: pair.total, percentage: pair.percentage });
-            }
-
-            for (const playerName of allPlayers) {
-
-                const section = document.createElement("div");
+            for (const player of players) {
+                const section = document.createElement("section");
                 section.className = "player-section";
 
-                const peers = [...lookup[playerName]].sort((a, b) => b.percentage - a.percentage);
-
-                const rows = peers.map(p => {
-                    const pct = p.percentage.toFixed(1);
-                    const barWidth = Math.round(p.percentage);
-                    return `
-                        <div class="peer-row">
-                            <span class="peer-name">${escapeHtml(p.other)}</span>
-                            <div class="peer-bar-wrap">
-                                <div class="peer-bar" style="width:${barWidth}%"></div>
-                            </div>
-                            <span class="peer-pct">${pct}%</span>
-                            <span class="peer-count">${p.count}/${p.total}</span>
-                        </div>
-                    `;
-                }).join("");
+                const connections = pairs
+                    .filter(pair => pair.players.includes(player))
+                    .sort((a, b) => b.count - a.count);
 
                 section.innerHTML = `
-                    <div class="player-section-header">${escapeHtml(playerName)}</div>
-                    <div class="peer-list">${rows}</div>
+                    <div class="player-section-header">
+                        <span class="player-section-kicker">Player</span>
+                        <h3>${escapeHtml(player)}</h3>
+                    </div>
+                    <div class="frequency-list">
+                        ${connections.map(pair => {
+                            const otherPlayer = pair.players.find(name => name !== player);
+                            const percentage = Number(pair.percentage || 0).toFixed(1);
+                            return `
+                                <div class="frequency-row${pair.count === 0 ? " empty" : ""}">
+                                    <span class="frequency-player">${escapeHtml(otherPlayer)}</span>
+                                    <span class="frequency-match-count">${pair.count} / ${pair.total} matches</span>
+                                    <strong class="frequency-percentage">${percentage}%</strong>
+                                </div>
+                            `;
+                        }).join("")}
+                    </div>
                 `;
 
                 container.appendChild(section);
