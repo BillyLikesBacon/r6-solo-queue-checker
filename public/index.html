@@ -90,13 +90,6 @@
                 <span id="status-label">
                     Ready
                 </span>
-
-                <span id="progress-label"></span>
-            </div>
-
-            <div class="progress-track">
-                <div id="progress-bar" class="progress-fill">
-                </div>
             </div>
 
         </section>
@@ -188,12 +181,6 @@
         const statusLabel =
             document.getElementById("status-label");
 
-        const progressLabel =
-            document.getElementById("progress-label");
-
-        const progressBar =
-            document.getElementById("progress-bar");
-
         const errorBox =
             document.getElementById("error");
 
@@ -213,6 +200,46 @@
                 .replace(/>/g, "&gt;")
                 .replace(/"/g, "&quot;")
                 .replace(/'/g, "&#039;");
+        }
+
+        const FORM_STORAGE_KEY = "r6ss-form-values";
+
+        function saveFormValues() {
+            try {
+                localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify({
+                    playerUrl: playerUrlInput.value,
+                    names: Array.from(nameInputs).map(input => input.value),
+                    targetMatches: matchSlider.value
+                }));
+            } catch (e) {
+                // Ignore storage restrictions and keep the form usable.
+            }
+        }
+
+        function restoreFormValues() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(FORM_STORAGE_KEY));
+                if (!saved) return;
+
+                if (typeof saved.playerUrl === "string") {
+                    playerUrlInput.value = saved.playerUrl;
+                }
+
+                if (Array.isArray(saved.names)) {
+                    nameInputs.forEach((input, index) => {
+                        input.value = typeof saved.names[index] === "string"
+                            ? saved.names[index]
+                            : "";
+                    });
+                }
+
+                if (saved.targetMatches != null) {
+                    matchSlider.value = saved.targetMatches;
+                    matchCountLabel.textContent = matchSlider.value;
+                }
+            } catch (e) {
+                // Ignore invalid or unavailable saved form data.
+            }
         }
 
 
@@ -270,6 +297,7 @@
                     dropdown.querySelectorAll(".search-item").forEach(item => {
                         item.addEventListener("click", () => {
                             inputElement.value = item.dataset.name;
+                            saveFormValues();
                             hideDropdown();
                         });
                     });
@@ -279,10 +307,20 @@
             }
 
             inputElement.addEventListener("input", () => {
+                saveFormValues();
                 clearTimeout(debounceTimer);
                 debounceTimer = setTimeout(() => {
                     performSearch(inputElement.value);
                 }, 250);
+            });
+
+            inputElement.addEventListener("focus", () => {
+                document.querySelectorAll(".search-dropdown").forEach(otherDropdown => {
+                    if (otherDropdown !== dropdown) {
+                        otherDropdown.classList.remove("active");
+                        otherDropdown.innerHTML = "";
+                    }
+                });
             });
 
             inputElement.addEventListener("keydown", (e) => {
@@ -301,6 +339,7 @@
                     e.preventDefault();
                     if (items[selectedIndex]) {
                         inputElement.value = items[selectedIndex].dataset.name;
+                        saveFormValues();
                         hideDropdown();
                     }
                 } else if (e.key === "Escape") {
@@ -321,16 +360,28 @@
         }
 
         document.addEventListener("click", (e) => {
-            if (!e.target.closest(".search-container")) {
-                document.querySelectorAll(".search-dropdown").forEach(d => {
+            const clickedContainer = e.target.closest(".search-container");
+            document.querySelectorAll(".search-dropdown").forEach(d => {
+                if (d.closest(".search-container") !== clickedContainer) {
                     d.classList.remove("active");
                     d.innerHTML = "";
-                });
-            }
+                }
+            });
+        });
+
+        document.addEventListener("focusin", (e) => {
+            const focusedContainer = e.target.closest(".search-container");
+            document.querySelectorAll(".search-dropdown").forEach(d => {
+                if (d.closest(".search-container") !== focusedContainer) {
+                    d.classList.remove("active");
+                    d.innerHTML = "";
+                }
+            });
         });
 
         setupAutocomplete(playerUrlInput);
         nameInputs.forEach(setupAutocomplete);
+        restoreFormValues();
 
 
         // =====================================
@@ -341,6 +392,7 @@
 
             matchCountLabel.textContent =
                 matchSlider.value;
+            saveFormValues();
 
         });
 
@@ -372,37 +424,6 @@
 
 
         // =====================================
-        // PROGRESS BAR
-        // =====================================
-
-        function updateProgress(current, total) {
-
-            if (!total) {
-
-                progressBar.style.width =
-                    "0%";
-
-                progressLabel.textContent =
-                    "";
-
-                return;
-            }
-
-            const percentage =
-                Math.round(
-                    (current / total) * 100
-                );
-
-            progressBar.style.width =
-                `${percentage}%`;
-
-            progressLabel.textContent =
-                `${current} / ${total}`;
-
-        }
-
-
-        // =====================================
         // START CHECKER
         // =====================================
 
@@ -421,13 +442,6 @@
 
             statusLabel.textContent =
                 "Starting";
-
-            progressLabel.textContent =
-                "";
-
-            progressBar.style.width =
-                "0%";
-
 
             const playerUrl =
                 playerUrlInput.value.trim();
@@ -563,15 +577,6 @@
                     job.status ||
                     "Working";
 
-
-                if (job.progress) {
-
-                    updateProgress(
-                        job.progress.current,
-                        job.progress.total
-                    );
-
-                }
 
                 renderPlayerProgress(job.player_progress);
 

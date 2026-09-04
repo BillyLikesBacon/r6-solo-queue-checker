@@ -327,26 +327,6 @@ input[type="range"]:focus-visible {
   color: var(--muted);
 }
 
-#progress-label {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.progress-track {
-  background: #242424;
-  height: 6px;
-  border-radius: 0;
-  margin-top: 10px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  background: var(--text);
-  height: 100%;
-  width: 0%;
-  transition: width 0.2s ease;
-}
-
 .scrape-progress-card {
   padding: 0;
 }
