@@ -91,6 +91,68 @@ input[type="text"]:focus-visible {
   box-shadow: 0 0 0 1px var(--text);
 }
 
+.search-container {
+  position: relative;
+  width: 100%;
+  margin-bottom: 17px;
+}
+
+.search-container input[type="text"] {
+  margin-bottom: 0;
+}
+
+.names-row .search-container {
+  margin-bottom: 0;
+}
+
+.search-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: #141414;
+  border: 1px solid var(--border);
+  border-top: none;
+  max-height: 220px;
+  overflow-y: auto;
+  display: none;
+}
+
+.search-dropdown.active {
+  display: block;
+}
+
+.search-item {
+  padding: 8px 10px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #222;
+  font-size: 12px;
+}
+
+.search-item:last-child {
+  border-bottom: none;
+}
+
+.search-item:hover,
+.search-item.highlighted {
+  background: #252525;
+  color: var(--text);
+}
+
+.search-item .player-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.search-item .player-meta {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .names-row {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));

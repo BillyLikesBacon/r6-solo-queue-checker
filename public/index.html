@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,537 +11,650 @@
 
 <body>
 
-<div class="container">
+    <div class="container">
 
-    <header>
-        <h1>R6SS - Rainbow 6 Squad Stats</h1>
-        <p class="subtitle">
-            ~ calculate how often a player queues with people in your squad ~
-        </p>
-    </header>
+        <header>
+            <h1>R6SS - Rainbow 6 Squad Stats</h1>
+            <p class="subtitle">
+                ~ calculate how often a player queues with people in your squad ~
+            </p>
+        </header>
 
-    <section class="card">
+        <section class="card">
 
-        <div id="error" class="error"></div>
+            <div id="error" class="error"></div>
 
-        <label class="field-label" for="player-url">
-            Player URL (currently only supports stats.cc ranked matches)
-        </label>
-
-        <input
-            id="player-url"
-            type="text"
-            placeholder="https://stats.cc/siege/BillyLikesBacon/uuid..."
-        >
-
-        <label class="field-label">
-            Squad members to cross-check (NOT case sensitive)
-        </label>
-
-        <div class="names-row">
-            <input class="name-input" type="text" placeholder="Mr.Muun">
-            <input class="name-input" type="text" placeholder="lil_limit">
-            <input class="name-input" type="text" placeholder="n00bmastrsixty9">
-            <input class="name-input" type="text" placeholder="Demo6a5">
-            <input class="name-input" type="text" placeholder="Stompn.G2">
-        </div>
-
-        <div class="slider-header">
-            <label class="field-label" for="match-slider">
-                Matches to check (from most recent)
+            <label class="field-label" for="player-url">
+                Player Username, URL, or UUID
             </label>
 
-            <span id="match-count-label" class="accent-text">
-                50
-            </span>
-        </div>
-
-        <input
-            id="match-slider"
-            max="500"
-            min="1"
-            type="range"
-            value="50"
-        >
-
-        <div class="slider-labels">
-            <span>1</span>
-            <span>500</span>
-        </div>
-
-        <button
-            id="run-button"
-            class="run-button"
-            type="button"
-        >
-            Run Checker
-        </button>
-
-    </section>
-
-    <section class="card status-card">
-
-        <div class="status-top">
-            <span id="status-label">
-                Ready
-            </span>
-
-            <span id="progress-label"></span>
-        </div>
-
-        <div class="progress-track">
-            <div
-                id="progress-bar"
-                class="progress-fill">
+            <div class="search-container">
+                <input id="player-url" type="text" autocomplete="off"
+                    placeholder="BillyLikesBacon or stats.cc profile URL...">
+                <div class="search-dropdown"></div>
             </div>
+
+            <label class="field-label">
+                Squad members to cross-check (NOT case sensitive)
+            </label>
+
+            <div class="names-row">
+                <div class="search-container">
+                    <input class="name-input" type="text" autocomplete="off" placeholder="Mr.Muun">
+                    <div class="search-dropdown"></div>
+                </div>
+                <div class="search-container">
+                    <input class="name-input" type="text" autocomplete="off" placeholder="lil_limit">
+                    <div class="search-dropdown"></div>
+                </div>
+                <div class="search-container">
+                    <input class="name-input" type="text" autocomplete="off" placeholder="n00bmastrsixty9">
+                    <div class="search-dropdown"></div>
+                </div>
+                <div class="search-container">
+                    <input class="name-input" type="text" autocomplete="off" placeholder="Demo6a5">
+                    <div class="search-dropdown"></div>
+                </div>
+                <div class="search-container">
+                    <input class="name-input" type="text" autocomplete="off" placeholder="Stompn.G2">
+                    <div class="search-dropdown"></div>
+                </div>
+            </div>
+
+            <div class="slider-header">
+                <label class="field-label" for="match-slider">
+                    Matches to check (from most recent)
+                </label>
+
+                <span id="match-count-label" class="accent-text">
+                    50
+                </span>
+            </div>
+
+            <input id="match-slider" max="500" min="1" type="range" value="50">
+
+            <div class="slider-labels">
+                <span>1</span>
+                <span>500</span>
+            </div>
+
+            <button id="run-button" class="run-button" type="button">
+                Run Checker
+            </button>
+
+        </section>
+
+        <section class="card status-card">
+
+            <div class="status-top">
+                <span id="status-label">
+                    Ready
+                </span>
+
+                <span id="progress-label"></span>
+            </div>
+
+            <div class="progress-track">
+                <div id="progress-bar" class="progress-fill">
+                </div>
+            </div>
+
+        </section>
+
+        <section id="results"></section>
+
+
+        <!-- ============================= -->
+        <!-- FEEDBACK BUTTON                -->
+        <!-- ============================= -->
+
+        <div class="feedback-section">
+
+            <button id="feedback-button" type="button" class="feedback-button">
+                Send Feedback
+            </button>
+
         </div>
 
-    </section>
 
-    <section id="results"></section>
+        <!-- ============================= -->
+        <!-- FEEDBACK POPUP                 -->
+        <!-- ============================= -->
+
+        <div id="feedback-modal" class="feedback-modal">
+
+            <div class="feedback-box">
+
+                <h2>Send Feedback</h2>
+
+                <p>
+                    Have a suggestion, found a bug, or just want to
+                    leave some feedback?
+                </p>
+
+                <textarea id="feedback-message" maxlength="2000" placeholder="Tell me what you think..."></textarea>
+
+                <div id="feedback-error" class="feedback-error"></div>
+
+                <div class="feedback-actions">
+
+                    <button id="feedback-cancel" type="button" class="feedback-cancel">
+                        Close
+                    </button>
+
+                    <button id="feedback-submit" type="button" class="feedback-submit">
+                        Send
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
 
 
-    <!-- ============================= -->
-    <!-- FEEDBACK BUTTON                -->
-    <!-- ============================= -->
+        <!-- ============================= -->
+        <!-- DISCLAIMER                     -->
+        <!-- ============================= -->
 
-    <div class="feedback-section">
+        <footer class="site-disclaimer">
 
-        <button
-            id="feedback-button"
-            type="button"
-            class="feedback-button"
-        >
-            Send Feedback
-        </button>
+            R6SS is an independent, unofficial project and is not
+            trademarked, licensed, endorsed, or affiliated with Ubisoft,
+            Rainbow Six Siege, or Stats.cc.
+
+        </footer>
 
     </div>
 
 
-    <!-- ============================= -->
-    <!-- FEEDBACK POPUP                 -->
-    <!-- ============================= -->
+    <script>
 
-    <div
-        id="feedback-modal"
-        class="feedback-modal"
-    >
+        const runButton =
+            document.getElementById("run-button");
 
-        <div class="feedback-box">
+        const playerUrlInput =
+            document.getElementById("player-url");
 
-            <h2>Send Feedback</h2>
+        const nameInputs =
+            document.querySelectorAll(".name-input");
 
-            <p>
-                Have a suggestion, found a bug, or just want to
-                leave some feedback?
-            </p>
+        const matchSlider =
+            document.getElementById("match-slider");
 
-            <textarea
-                id="feedback-message"
-                maxlength="2000"
-                placeholder="Tell me what you think..."
-            ></textarea>
+        const matchCountLabel =
+            document.getElementById("match-count-label");
 
-            <div
-                id="feedback-error"
-                class="feedback-error"
-            ></div>
+        const statusLabel =
+            document.getElementById("status-label");
 
-            <div class="feedback-actions">
+        const progressLabel =
+            document.getElementById("progress-label");
 
-                <button
-                    id="feedback-cancel"
-                    type="button"
-                    class="feedback-cancel"
-                >
-                    Close
-                </button>
+        const progressBar =
+            document.getElementById("progress-bar");
 
-                <button
-                    id="feedback-submit"
-                    type="button"
-                    class="feedback-submit"
-                >
-                    Send
-                </button>
+        const errorBox =
+            document.getElementById("error");
 
-            </div>
+        const results =
+            document.getElementById("results");
 
-        </div>
 
-    </div>
+        // =====================================
+        // UTILITIES
+        // =====================================
 
+        function escapeHtml(str) {
+            if (str == null) return "";
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
 
-    <!-- ============================= -->
-    <!-- DISCLAIMER                     -->
-    <!-- ============================= -->
 
-    <footer class="site-disclaimer">
+        // =====================================
+        // PLAYER SEARCH AUTOCOMPLETE
+        // =====================================
 
-        R6SS is an independent, unofficial project and is not
-        trademarked, licensed, endorsed, or affiliated with Ubisoft,
-        Rainbow Six Siege, or Stats.cc.
+        function setupAutocomplete(inputElement) {
+            if (!inputElement) return;
 
-    </footer>
+            const container = inputElement.closest(".search-container");
+            if (!container) return;
 
-</div>
+            const dropdown = container.querySelector(".search-dropdown");
+            if (!dropdown) return;
 
+            let debounceTimer = null;
+            let selectedIndex = -1;
 
-<script>
+            function hideDropdown() {
+                dropdown.classList.remove("active");
+                dropdown.innerHTML = "";
+                selectedIndex = -1;
+            }
 
-const runButton =
-    document.getElementById("run-button");
-
-const playerUrlInput =
-    document.getElementById("player-url");
-
-const nameInputs =
-    document.querySelectorAll(".name-input");
-
-const matchSlider =
-    document.getElementById("match-slider");
-
-const matchCountLabel =
-    document.getElementById("match-count-label");
-
-const statusLabel =
-    document.getElementById("status-label");
-
-const progressLabel =
-    document.getElementById("progress-label");
-
-const progressBar =
-    document.getElementById("progress-bar");
-
-const errorBox =
-    document.getElementById("error");
-
-const results =
-    document.getElementById("results");
-
-
-// =====================================
-// MATCH SLIDER
-// =====================================
-
-matchSlider.addEventListener("input", () => {
-
-    matchCountLabel.textContent =
-        matchSlider.value;
-
-});
-
-
-// =====================================
-// ERROR HANDLING
-// =====================================
-
-function showError(message) {
-
-    errorBox.textContent =
-        message;
-
-    errorBox.style.display =
-        "block";
-
-}
-
-
-function clearError() {
-
-    errorBox.textContent =
-        "";
-
-    errorBox.style.display =
-        "none";
-
-}
-
-
-// =====================================
-// PROGRESS BAR
-// =====================================
-
-function updateProgress(current, total) {
-
-    if (!total) {
-
-        progressBar.style.width =
-            "0%";
-
-        progressLabel.textContent =
-            "";
-
-        return;
-    }
-
-    const percentage =
-        Math.round(
-            (current / total) * 100
-        );
-
-    progressBar.style.width =
-        `${percentage}%`;
-
-    progressLabel.textContent =
-        `${current} / ${total}`;
-
-}
-
-
-// =====================================
-// START CHECKER
-// =====================================
-
-async function startChecker() {
-
-    clearError();
-
-    results.innerHTML =
-        "";
-
-    runButton.disabled =
-        true;
-
-    runButton.textContent =
-        "Running...";
-
-    statusLabel.textContent =
-        "Starting";
-
-    progressLabel.textContent =
-        "";
-
-    progressBar.style.width =
-        "0%";
-
-
-    const playerUrl =
-        playerUrlInput.value.trim();
-
-
-    const names =
-        Array.from(nameInputs)
-            .map(input =>
-                input.value.trim()
-            )
-            .filter(Boolean);
-
-
-    const targetMatches =
-        Number(matchSlider.value);
-
-
-    if (!playerUrl) {
-
-        showError(
-            "Player URL is required."
-        );
-
-        resetButton();
-
-        return;
-    }
-
-
-    if (!names.length) {
-
-        showError(
-            "Enter at least one squad member."
-        );
-
-        resetButton();
-
-        return;
-    }
-
-
-    try {
-
-        const response =
-            await fetch(
-                "/api/start",
-                {
-                    method: "POST",
-
-                    headers: {
-                        "Content-Type":
-                            "application/json"
-                    },
-
-                    body: JSON.stringify({
-                        player_url:
-                            playerUrl,
-
-                        names:
-                            names,
-
-                        target_matches:
-                            targetMatches
-                    })
+            async function performSearch(query) {
+                if (!query || query.trim().length < 2) {
+                    hideDropdown();
+                    return;
                 }
-            );
+
+                try {
+                    const res = await fetch(`/api/search-players?q=${encodeURIComponent(query.trim())}`);
+                    if (!res.ok) {
+                        hideDropdown();
+                        return;
+                    }
+
+                    const players = await res.json();
+                    if (!Array.isArray(players) || players.length === 0) {
+                        hideDropdown();
+                        return;
+                    }
+
+                    dropdown.innerHTML = players.map((p, idx) => `
+                <div class="search-item" data-index="${idx}" data-name="${escapeHtml(p.name)}">
+                    <span class="player-name">${escapeHtml(p.name)}</span>
+                    <span class="player-meta">${p.level ? 'Lvl ' + p.level : ''} ${p.platform ? '(' + escapeHtml(p.platform.toUpperCase()) + ')' : ''}</span>
+                </div>
+            `).join("");
+
+                    dropdown.classList.add("active");
+                    selectedIndex = -1;
+
+                    dropdown.querySelectorAll(".search-item").forEach(item => {
+                        item.addEventListener("click", () => {
+                            inputElement.value = item.dataset.name;
+                            hideDropdown();
+                        });
+                    });
+                } catch (e) {
+                    hideDropdown();
+                }
+            }
+
+            inputElement.addEventListener("input", () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    performSearch(inputElement.value);
+                }, 250);
+            });
+
+            inputElement.addEventListener("keydown", (e) => {
+                const items = dropdown.querySelectorAll(".search-item");
+                if (!dropdown.classList.contains("active") || items.length === 0) return;
+
+                if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+                    updateHighlight(items);
+                } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    selectedIndex = Math.max(selectedIndex - 1, 0);
+                    updateHighlight(items);
+                } else if (e.key === "Enter" && selectedIndex >= 0) {
+                    e.preventDefault();
+                    if (items[selectedIndex]) {
+                        inputElement.value = items[selectedIndex].dataset.name;
+                        hideDropdown();
+                    }
+                } else if (e.key === "Escape") {
+                    hideDropdown();
+                }
+            });
+
+            function updateHighlight(items) {
+                items.forEach((item, idx) => {
+                    if (idx === selectedIndex) {
+                        item.classList.add("highlighted");
+                        item.scrollIntoView({ block: "nearest" });
+                    } else {
+                        item.classList.remove("highlighted");
+                    }
+                });
+            }
+        }
+
+        document.addEventListener("click", (e) => {
+            if (!e.target.closest(".search-container")) {
+                document.querySelectorAll(".search-dropdown").forEach(d => {
+                    d.classList.remove("active");
+                    d.innerHTML = "";
+                });
+            }
+        });
+
+        setupAutocomplete(playerUrlInput);
+        nameInputs.forEach(setupAutocomplete);
 
 
-        const data =
-            await response.json();
+        // =====================================
+        // MATCH SLIDER
+        // =====================================
+
+        matchSlider.addEventListener("input", () => {
+
+            matchCountLabel.textContent =
+                matchSlider.value;
+
+        });
 
 
-        if (!response.ok) {
+        // =====================================
+        // ERROR HANDLING
+        // =====================================
 
-            throw new Error(
-                data.error ||
-                "Failed to start checker."
-            );
+        function showError(message) {
+
+            errorBox.textContent =
+                message;
+
+            errorBox.style.display =
+                "block";
 
         }
 
 
-        await pollJob(
-            data.job_id
-        );
+        function clearError() {
 
+            errorBox.textContent =
+                "";
 
-    } catch (error) {
-
-        showError(
-            error.message
-        );
-
-        statusLabel.textContent =
-            "Failed";
-
-        resetButton();
-
-    }
-
-}
-
-
-// =====================================
-// POLL JOB STATUS
-// =====================================
-
-async function pollJob(jobId) {
-
-    while (true) {
-
-        const response =
-            await fetch(
-                `/api/status/${jobId}`
-            );
-
-
-        const job =
-            await response.json();
-
-
-        if (!response.ok) {
-
-            throw new Error(
-                job.error ||
-                "Failed to retrieve job status."
-            );
+            errorBox.style.display =
+                "none";
 
         }
 
 
-        statusLabel.textContent =
-            job.status ||
-            "Working";
+        // =====================================
+        // PROGRESS BAR
+        // =====================================
 
+        function updateProgress(current, total) {
 
-        if (job.progress) {
+            if (!total) {
 
-            updateProgress(
-                job.progress.current,
-                job.progress.total
-            );
+                progressBar.style.width =
+                    "0%";
+
+                progressLabel.textContent =
+                    "";
+
+                return;
+            }
+
+            const percentage =
+                Math.round(
+                    (current / total) * 100
+                );
+
+            progressBar.style.width =
+                `${percentage}%`;
+
+            progressLabel.textContent =
+                `${current} / ${total}`;
 
         }
 
 
-        if (job.done) {
+        // =====================================
+        // START CHECKER
+        // =====================================
 
-            if (job.error) {
+        async function startChecker() {
 
-                throw new Error(
-                    job.error
+            clearError();
+
+            results.innerHTML =
+                "";
+
+            runButton.disabled =
+                true;
+
+            runButton.textContent =
+                "Running...";
+
+            statusLabel.textContent =
+                "Starting";
+
+            progressLabel.textContent =
+                "";
+
+            progressBar.style.width =
+                "0%";
+
+
+            const playerUrl =
+                playerUrlInput.value.trim();
+
+
+            const names =
+                Array.from(nameInputs)
+                    .map(input =>
+                        input.value.trim()
+                    )
+                    .filter(Boolean);
+
+
+            const targetMatches =
+                Number(matchSlider.value);
+
+
+            if (!playerUrl) {
+
+                showError(
+                    "Player URL is required."
+                );
+
+                resetButton();
+
+                return;
+            }
+
+
+            if (!names.length) {
+
+                showError(
+                    "Enter at least one squad member."
+                );
+
+                resetButton();
+
+                return;
+            }
+
+
+            try {
+
+                const response =
+                    await fetch(
+                        "/api/start",
+                        {
+                            method: "POST",
+
+                            headers: {
+                                "Content-Type":
+                                    "application/json"
+                            },
+
+                            body: JSON.stringify({
+                                player_url:
+                                    playerUrl,
+
+                                names:
+                                    names,
+
+                                target_matches:
+                                    targetMatches
+                            })
+                        }
+                    );
+
+
+                const data =
+                    await response.json();
+
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        data.error ||
+                        "Failed to start checker."
+                    );
+
+                }
+
+
+                await pollJob(
+                    data.job_id
+                );
+
+
+            } catch (error) {
+
+                showError(
+                    error.message
+                );
+
+                statusLabel.textContent =
+                    "Failed";
+
+                resetButton();
+
+            }
+
+        }
+
+
+        // =====================================
+        // POLL JOB STATUS
+        // =====================================
+
+        async function pollJob(jobId) {
+
+            while (true) {
+
+                const response =
+                    await fetch(
+                        `/api/status/${jobId}`
+                    );
+
+
+                const job =
+                    await response.json();
+
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        job.error ||
+                        "Failed to retrieve job status."
+                    );
+
+                }
+
+
+                statusLabel.textContent =
+                    job.status ||
+                    "Working";
+
+
+                if (job.progress) {
+
+                    updateProgress(
+                        job.progress.current,
+                        job.progress.total
+                    );
+
+                }
+
+
+                if (job.done) {
+
+                    if (job.error) {
+
+                        throw new Error(
+                            job.error
+                        );
+
+                    }
+
+
+                    await loadResults(
+                        jobId
+                    );
+
+
+                    statusLabel.textContent =
+                        "Complete";
+
+
+                    break;
+
+                }
+
+
+                await new Promise(
+                    resolve =>
+                        setTimeout(
+                            resolve,
+                            1000
+                        )
                 );
 
             }
 
 
-            await loadResults(
-                jobId
-            );
-
-
-            statusLabel.textContent =
-                "Complete";
-
-
-            break;
+            resetButton();
 
         }
 
 
-        await new Promise(
-            resolve =>
-                setTimeout(
-                    resolve,
-                    1000
-                )
-        );
+        // =====================================
+        // LOAD RESULTS
+        // =====================================
 
-    }
+        async function loadResults(jobId) {
 
-
-    resetButton();
-
-}
+            const response =
+                await fetch(
+                    `/api/result/${jobId}`
+                );
 
 
-// =====================================
-// LOAD RESULTS
-// =====================================
-
-async function loadResults(jobId) {
-
-    const response =
-        await fetch(
-            `/api/result/${jobId}`
-        );
+            const data =
+                await response.json();
 
 
-    const data =
-        await response.json();
+            if (!response.ok) {
+
+                throw new Error(
+                    data.error ||
+                    "Failed to load results."
+                );
+
+            }
 
 
-    if (!response.ok) {
+            renderResults(
+                data
+            );
 
-        throw new Error(
-            data.error ||
-            "Failed to load results."
-        );
-
-    }
+        }
 
 
-    renderResults(
-        data
-    );
+        // =====================================
+        // RENDER RESULTS
+        // =====================================
 
-}
+        function renderResults(data) {
 
-
-// =====================================
-// RENDER RESULTS
-// =====================================
-
-function renderResults(data) {
-
-    const stats = `
+            const stats = `
 
         <section class="card">
 
@@ -618,54 +732,54 @@ function renderResults(data) {
     `;
 
 
-    results.innerHTML =
-        stats;
+            results.innerHTML =
+                stats;
 
 
-    renderFrequencies(
-        data
-    );
-
-
-    renderGroups(
-        data
-    );
-
-}
-
-
-// =====================================
-// RENDER FREQUENCIES
-// =====================================
-
-function renderFrequencies(data) {
-
-    const container =
-        document.getElementById(
-            "frequency-grid"
-        );
-
-
-    container.innerHTML =
-        "";
-
-
-    for (
-        const player
-        of data.player_frequencies
-    ) {
-
-        const box =
-            document.createElement(
-                "div"
+            renderFrequencies(
+                data
             );
 
 
-        box.className =
-            "freq-box";
+            renderGroups(
+                data
+            );
+
+        }
 
 
-        box.innerHTML = `
+        // =====================================
+        // RENDER FREQUENCIES
+        // =====================================
+
+        function renderFrequencies(data) {
+
+            const container =
+                document.getElementById(
+                    "frequency-grid"
+                );
+
+
+            container.innerHTML =
+                "";
+
+
+            for (
+                const player
+                of data.player_frequencies
+            ) {
+
+                const box =
+                    document.createElement(
+                        "div"
+                    );
+
+
+                box.className =
+                    "freq-box";
+
+
+                box.innerHTML = `
 
             <div class="freq-top">
 
@@ -692,37 +806,37 @@ function renderFrequencies(data) {
         `;
 
 
-        container.appendChild(
-            box
-        );
+                container.appendChild(
+                    box
+                );
 
-    }
+            }
 
-}
-
-
-// =====================================
-// RENDER MATCHING GROUPS
-// =====================================
-
-function renderGroups(data) {
-
-    const container =
-        document.getElementById(
-            "groups-list"
-        );
+        }
 
 
-    container.innerHTML =
-        "";
+        // =====================================
+        // RENDER MATCHING GROUPS
+        // =====================================
+
+        function renderGroups(data) {
+
+            const container =
+                document.getElementById(
+                    "groups-list"
+                );
 
 
-    if (
-        !data.matching_groups ||
-        data.matching_groups.length === 0
-    ) {
+            container.innerHTML =
+                "";
 
-        container.innerHTML = `
+
+            if (
+                !data.matching_groups ||
+                data.matching_groups.length === 0
+            ) {
+
+                container.innerHTML = `
 
             <div class="no-matches">
 
@@ -733,27 +847,27 @@ function renderGroups(data) {
 
         `;
 
-        return;
+                return;
 
-    }
-
-
-    for (
-        const group
-        of data.matching_groups
-    ) {
-
-        const row =
-            document.createElement(
-                "div"
-            );
+            }
 
 
-        row.className =
-            "group-row";
+            for (
+                const group
+                of data.matching_groups
+            ) {
+
+                const row =
+                    document.createElement(
+                        "div"
+                    );
 
 
-        row.innerHTML = `
+                row.className =
+                    "group-row";
+
+
+                row.innerHTML = `
 
             <span class="group-label">
                 Match ${group.group}
@@ -762,366 +876,367 @@ function renderGroups(data) {
             <span class="group-names">
 
                 ${group.names
-                    .map(escapeHtml)
-                    .join(", ")}
+                        .map(escapeHtml)
+                        .join(", ")}
 
             </span>
 
         `;
 
 
-        container.appendChild(
-            row
-        );
-
-    }
-
-}
-
-
-// =====================================
-// HTML ESCAPING
-// =====================================
-
-function escapeHtml(value) {
-
-    const div =
-        document.createElement(
-            "div"
-        );
-
-
-    div.textContent =
-        String(value);
-
-
-    return div.innerHTML;
-
-}
-
-
-// =====================================
-// RESET RUN BUTTON
-// =====================================
-
-function resetButton() {
-
-    runButton.disabled =
-        false;
-
-    runButton.textContent =
-        "Run Checker";
-
-}
-
-
-// =====================================
-// FEEDBACK SYSTEM
-// =====================================
-
-const feedbackButton =
-    document.getElementById(
-        "feedback-button"
-    );
-
-
-const feedbackModal =
-    document.getElementById(
-        "feedback-modal"
-    );
-
-
-const feedbackCancel =
-    document.getElementById(
-        "feedback-cancel"
-    );
-
-
-const feedbackSubmit =
-    document.getElementById(
-        "feedback-submit"
-    );
-
-
-const feedbackMessage =
-    document.getElementById(
-        "feedback-message"
-    );
-
-
-const feedbackError =
-    document.getElementById(
-        "feedback-error"
-    );
-
-
-// Open feedback popup
-
-feedbackButton.addEventListener(
-    "click",
-    () => {
-
-        feedbackModal.classList.add(
-            "open"
-        );
-
-        feedbackMessage.focus();
-
-    }
-);
-
-
-// Close feedback popup
-
-feedbackCancel.addEventListener(
-    "click",
-    () => {
-
-        feedbackModal.classList.remove(
-            "open"
-        );
-
-        feedbackMessage.value =
-            "";
-
-        feedbackError.textContent =
-            "";
-
-    }
-);
-
-
-// Close when clicking outside the box
-
-feedbackModal.addEventListener(
-    "click",
-    (event) => {
-
-        if (
-            event.target ===
-            feedbackModal
-        ) {
-
-            feedbackModal.classList.remove(
-                "open"
-            );
-
-        }
-
-    }
-);
-
-
-// Submit feedback
-
-feedbackSubmit.addEventListener(
-    "click",
-    async () => {
-
-        const message =
-            feedbackMessage.value.trim();
-
-
-        if (!message) {
-
-            feedbackError.textContent =
-                "Please enter some feedback.";
-
-            return;
-
-        }
-
-
-        feedbackSubmit.disabled =
-            true;
-
-        feedbackSubmit.textContent =
-            "Sending...";
-
-
-        feedbackError.textContent =
-            "";
-
-
-        try {
-
-            const response =
-                await fetch(
-                    "/api/feedback",
-                    {
-                        method: "POST",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json"
-                        },
-
-                        body: JSON.stringify({
-                            message: message,
-                            device_info: getDeviceInfo()
-                        })
-
-                    }
-                );
-
-
-            const data =
-                await response.json();
-
-
-            if (!response.ok) {
-
-                throw new Error(
-                    data.error ||
-                    "Failed to send feedback."
+                container.appendChild(
+                    row
                 );
 
             }
 
-
-            feedbackMessage.value =
-                "";
+        }
 
 
-            feedbackError.textContent =
-                "Thanks for the feedback!";
+        // =====================================
+        // HTML ESCAPING
+        // =====================================
+
+        function escapeHtml(value) {
+
+            const div =
+                document.createElement(
+                    "div"
+                );
 
 
-            setTimeout(
-                () => {
+            div.textContent =
+                String(value);
+
+
+            return div.innerHTML;
+
+        }
+
+
+        // =====================================
+        // RESET RUN BUTTON
+        // =====================================
+
+        function resetButton() {
+
+            runButton.disabled =
+                false;
+
+            runButton.textContent =
+                "Run Checker";
+
+        }
+
+
+        // =====================================
+        // FEEDBACK SYSTEM
+        // =====================================
+
+        const feedbackButton =
+            document.getElementById(
+                "feedback-button"
+            );
+
+
+        const feedbackModal =
+            document.getElementById(
+                "feedback-modal"
+            );
+
+
+        const feedbackCancel =
+            document.getElementById(
+                "feedback-cancel"
+            );
+
+
+        const feedbackSubmit =
+            document.getElementById(
+                "feedback-submit"
+            );
+
+
+        const feedbackMessage =
+            document.getElementById(
+                "feedback-message"
+            );
+
+
+        const feedbackError =
+            document.getElementById(
+                "feedback-error"
+            );
+
+
+        // Open feedback popup
+
+        feedbackButton.addEventListener(
+            "click",
+            () => {
+
+                feedbackModal.classList.add(
+                    "open"
+                );
+
+                feedbackMessage.focus();
+
+            }
+        );
+
+
+        // Close feedback popup
+
+        feedbackCancel.addEventListener(
+            "click",
+            () => {
+
+                feedbackModal.classList.remove(
+                    "open"
+                );
+
+                feedbackMessage.value =
+                    "";
+
+                feedbackError.textContent =
+                    "";
+
+            }
+        );
+
+
+        // Close when clicking outside the box
+
+        feedbackModal.addEventListener(
+            "click",
+            (event) => {
+
+                if (
+                    event.target ===
+                    feedbackModal
+                ) {
 
                     feedbackModal.classList.remove(
                         "open"
                     );
 
+                }
+
+            }
+        );
+
+
+        // Submit feedback
+
+        feedbackSubmit.addEventListener(
+            "click",
+            async () => {
+
+                const message =
+                    feedbackMessage.value.trim();
+
+
+                if (!message) {
+
                     feedbackError.textContent =
+                        "Please enter some feedback.";
+
+                    return;
+
+                }
+
+
+                feedbackSubmit.disabled =
+                    true;
+
+                feedbackSubmit.textContent =
+                    "Sending...";
+
+
+                feedbackError.textContent =
+                    "";
+
+
+                try {
+
+                    const response =
+                        await fetch(
+                            "/api/feedback",
+                            {
+                                method: "POST",
+
+                                headers: {
+                                    "Content-Type":
+                                        "application/json"
+                                },
+
+                                body: JSON.stringify({
+                                    message: message,
+                                    device_info: getDeviceInfo()
+                                })
+
+                            }
+                        );
+
+
+                    const data =
+                        await response.json();
+
+
+                    if (!response.ok) {
+
+                        throw new Error(
+                            data.error ||
+                            "Failed to send feedback."
+                        );
+
+                    }
+
+
+                    feedbackMessage.value =
                         "";
 
-                },
-                1200
-            );
+
+                    feedbackError.textContent =
+                        "Thanks for the feedback!";
 
 
-        } catch (error) {
+                    setTimeout(
+                        () => {
 
-            feedbackError.textContent =
-                error.message;
+                            feedbackModal.classList.remove(
+                                "open"
+                            );
 
-        } finally {
+                            feedbackError.textContent =
+                                "";
 
-            feedbackSubmit.disabled =
-                false;
+                        },
+                        1200
+                    );
 
-            feedbackSubmit.textContent =
-                "Send";
 
+                } catch (error) {
+
+                    feedbackError.textContent =
+                        error.message;
+
+                } finally {
+
+                    feedbackSubmit.disabled =
+                        false;
+
+                    feedbackSubmit.textContent =
+                        "Send";
+
+                }
+
+            }
+        );
+
+        // =====================================
+        // DEVICE INFORMATION
+        // =====================================
+
+        function getDeviceInfo() {
+
+            const ua = navigator.userAgent;
+
+            let browser = "Unknown";
+
+            if (ua.includes("Edg/")) {
+                browser = "Microsoft Edge";
+            } else if (ua.includes("Chrome/")) {
+                browser = "Google Chrome";
+            } else if (ua.includes("Firefox/")) {
+                browser = "Mozilla Firefox";
+            } else if (ua.includes("Safari/")) {
+                browser = "Safari";
+            } else if (ua.includes("OPR/")) {
+                browser = "Opera";
+            }
+
+
+            let operatingSystem = "Unknown";
+
+            if (ua.includes("Windows")) {
+                operatingSystem = "Windows";
+            } else if (ua.includes("Mac OS X")) {
+                operatingSystem = "macOS";
+            } else if (ua.includes("Android")) {
+                operatingSystem = "Android";
+            } else if (
+                ua.includes("iPhone") ||
+                ua.includes("iPad")
+            ) {
+                operatingSystem = "iOS";
+            } else if (ua.includes("Linux")) {
+                operatingSystem = "Linux";
+            }
+
+
+            return {
+
+                // Screen
+                screen_width: window.screen.width,
+                screen_height: window.screen.height,
+
+                // Browser viewport
+                viewport_width: window.innerWidth,
+                viewport_height: window.innerHeight,
+
+                // Display density
+                device_pixel_ratio:
+                    window.devicePixelRatio || 1,
+
+                // Touch support
+                touch_supported:
+                    "ontouchstart" in window ||
+                    navigator.maxTouchPoints > 0,
+
+                max_touch_points:
+                    navigator.maxTouchPoints || 0,
+
+                // Browser / OS
+                browser: browser,
+                operating_system: operatingSystem,
+
+                // Browser language
+                language:
+                    navigator.language || null,
+
+                // Timezone
+                timezone:
+                    Intl.DateTimeFormat().resolvedOptions().timeZone || null,
+
+                // Hardware information when the browser provides it
+                cpu_cores:
+                    navigator.hardwareConcurrency || null,
+
+                device_memory_gb:
+                    navigator.deviceMemory || null,
+
+                // Connection information when available
+                connection_type:
+                    navigator.connection?.effectiveType || null,
+
+                // Mobile/tablet detection
+                mobile:
+                    /Android|iPhone|iPad|iPod|Mobile/i.test(ua)
+            };
         }
 
-    }
-);
+        // =====================================
+        // START APPLICATION
+        // =====================================
 
-// =====================================
-// DEVICE INFORMATION
-// =====================================
+        runButton.addEventListener(
+            "click",
+            startChecker
+        );
 
-function getDeviceInfo() {
-
-    const ua = navigator.userAgent;
-
-    let browser = "Unknown";
-
-    if (ua.includes("Edg/")) {
-        browser = "Microsoft Edge";
-    } else if (ua.includes("Chrome/")) {
-        browser = "Google Chrome";
-    } else if (ua.includes("Firefox/")) {
-        browser = "Mozilla Firefox";
-    } else if (ua.includes("Safari/")) {
-        browser = "Safari";
-    } else if (ua.includes("OPR/")) {
-        browser = "Opera";
-    }
-
-
-    let operatingSystem = "Unknown";
-
-    if (ua.includes("Windows")) {
-        operatingSystem = "Windows";
-    } else if (ua.includes("Mac OS X")) {
-        operatingSystem = "macOS";
-    } else if (ua.includes("Android")) {
-        operatingSystem = "Android";
-    } else if (
-        ua.includes("iPhone") ||
-        ua.includes("iPad")
-    ) {
-        operatingSystem = "iOS";
-    } else if (ua.includes("Linux")) {
-        operatingSystem = "Linux";
-    }
-
-
-    return {
-
-        // Screen
-        screen_width: window.screen.width,
-        screen_height: window.screen.height,
-
-        // Browser viewport
-        viewport_width: window.innerWidth,
-        viewport_height: window.innerHeight,
-
-        // Display density
-        device_pixel_ratio:
-            window.devicePixelRatio || 1,
-
-        // Touch support
-        touch_supported:
-            "ontouchstart" in window ||
-            navigator.maxTouchPoints > 0,
-
-        max_touch_points:
-            navigator.maxTouchPoints || 0,
-
-        // Browser / OS
-        browser: browser,
-        operating_system: operatingSystem,
-
-        // Browser language
-        language:
-            navigator.language || null,
-
-        // Timezone
-        timezone:
-            Intl.DateTimeFormat().resolvedOptions().timeZone || null,
-
-        // Hardware information when the browser provides it
-        cpu_cores:
-            navigator.hardwareConcurrency || null,
-
-        device_memory_gb:
-            navigator.deviceMemory || null,
-
-        // Connection information when available
-        connection_type:
-            navigator.connection?.effectiveType || null,
-
-        // Mobile/tablet detection
-        mobile:
-            /Android|iPhone|iPad|iPod|Mobile/i.test(ua)
-    };
-}
-
-// =====================================
-// START APPLICATION
-// =====================================
-
-runButton.addEventListener(
-    "click",
-    startChecker
-);
-
-</script>
+    </script>
 
 </body>
+
 </html>
