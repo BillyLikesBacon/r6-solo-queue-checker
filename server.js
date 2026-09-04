@@ -661,6 +661,62 @@ app.post("/api/feedback", async (req, res) => {
   }
 });
 
+app.get("/api/search-players", async (req, res) => {
+  const query = String(req.query.q || "").trim();
+
+  if (!query || query.length < 2) {
+    return res.json([]);
+  }
+
+  try {
+    const results = [];
+    const seenNames = new Set();
+
+    for (const platform of ["uplay", "xbl", "psn"]) {
+      try {
+        const url =
+          "https://r6.stats.cc/search?displayName=" +
+          encodeURIComponent(query) +
+          "&platform=" +
+          platform;
+
+        const { response, data } = await fetchJson(url, {
+          method: "GET",
+          headers: apiHeaders(),
+        });
+
+        if (response.ok && Array.isArray(data)) {
+          for (const item of data) {
+            const name = item.displayName || item.name;
+            const uuid = item.userId || item.profileId || item.id;
+
+            if (name && !seenNames.has(name.toLowerCase())) {
+              seenNames.add(name.toLowerCase());
+              results.push({
+                name,
+                uuid: uuid || null,
+                platform: item.platform || platform,
+                level: item.level || null,
+              });
+            }
+          }
+        }
+      } catch {
+        // Continue to next platform if error
+      }
+
+      if (results.length >= 8) break;
+    }
+
+    return res.json(results.slice(0, 8));
+  } catch (error) {
+    console.error("Player search error:", error);
+    return res.status(500).json({
+      error: "Failed to search players."
+    });
+  }
+});
+
 app.get("/", (req, res) => {
   res.sendFile(
     path.join(
