@@ -80,6 +80,21 @@ function setProgress(jobId, current, total) {
   });
 }
 
+function setPlayerProgress(jobId, index, current) {
+  const job = JOBS.get(jobId);
+  if (!job || !job.player_progress || !job.player_progress[index]) return;
+
+  const playerProgress = [...job.player_progress];
+  playerProgress[index] = {
+    ...playerProgress[index],
+    current,
+  };
+
+  updateJob(jobId, {
+    player_progress: playerProgress,
+  });
+}
+
 function cleanPlayerUrl(value) {
   let url = String(value || "").trim();
 
@@ -439,7 +454,14 @@ async function runScraper(
     ];
 
     const totalToFetch = allPlayerDefs.length * targetMatches;
-    let baseLoaded = 0;
+
+    updateJob(jobId, {
+      player_progress: allPlayerDefs.map((def) => ({
+        name: def.isMain ? def.input : def.label,
+        current: 0,
+        total: targetMatches,
+      })),
+    });
 
     setStatus(jobId, "Resolving player profiles...");
 
@@ -448,6 +470,7 @@ async function runScraper(
 
     const reportPlayerProgress = (index, loaded) => {
       playerProgress[index] = loaded;
+      setPlayerProgress(jobId, index, loaded);
       const completed = playerProgress.reduce((sum, value) => sum + value, 0);
       setProgress(jobId, completed, totalToFetch);
     };
@@ -751,6 +774,14 @@ app.post("/api/start", (req, res) => {
 
   JOBS.set(jobId, {
     status: "Starting...",
+    player_progress: [
+      { name: playerUrl, current: 0, total: targetMatches },
+      ...names.map((name) => ({
+        name,
+        current: 0,
+        total: targetMatches,
+      })),
+    ],
     progress: {
       current: 0,
       total: totalToFetch,
@@ -786,6 +817,7 @@ app.get(
 
     return res.json({
       status: job.status,
+      player_progress: job.player_progress,
       progress: job.progress,
       done: job.done,
       error: job.error,

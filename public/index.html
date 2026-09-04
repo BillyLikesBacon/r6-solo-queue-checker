@@ -573,6 +573,8 @@
 
                 }
 
+                renderPlayerProgress(job.player_progress);
+
 
                 if (job.done) {
 
@@ -618,6 +620,42 @@
         // =====================================
         // LOAD RESULTS
         // =====================================
+
+        function renderPlayerProgress(playerProgress) {
+
+            if (!Array.isArray(playerProgress) || playerProgress.length === 0) return;
+
+            let container = document.getElementById("scrape-progress");
+
+            if (!container) {
+                container = document.createElement("section");
+                container.id = "scrape-progress";
+                container.className = "card scrape-progress-card";
+                results.appendChild(container);
+            }
+
+            container.innerHTML = `
+                <div class="progress-heading">Player Scrape Progress</div>
+                <div class="progress-player-list">
+                    ${playerProgress.map(player => {
+                        const total = Number(player.total) || 1;
+                        const current = Math.min(Number(player.current) || 0, total);
+                        const percentage = Math.round((current / total) * 100);
+                        return `
+                            <div class="progress-player">
+                                <div class="progress-player-top">
+                                    <strong>${escapeHtml(player.name)}</strong>
+                                    <span>${current} / ${total} matches</span>
+                                </div>
+                                <div class="player-progress-track">
+                                    <div class="player-progress-fill" style="width: ${percentage}%"></div>
+                                </div>
+                            </div>
+                        `;
+                    }).join("")}
+                </div>
+            `;
+        }
 
         async function loadResults(jobId) {
 

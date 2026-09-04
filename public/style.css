@@ -347,6 +347,58 @@ input[type="range"]:focus-visible {
   transition: width 0.2s ease;
 }
 
+.scrape-progress-card {
+  padding: 0;
+}
+
+.progress-heading {
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.progress-player-list {
+  padding: 6px 18px 10px;
+}
+
+.progress-player {
+  padding: 8px 0;
+}
+
+.progress-player-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 5px;
+}
+
+.progress-player-top strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.progress-player-top span {
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.player-progress-track {
+  height: 5px;
+  overflow: hidden;
+  background: #242424;
+}
+
+.player-progress-fill {
+  height: 100%;
+  background: var(--text);
+  transition: width 0.25s ease;
+}
+
 .empty-results {
   text-align: left;
   padding: 18px;
