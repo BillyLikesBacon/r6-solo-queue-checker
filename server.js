@@ -45,6 +45,8 @@ const INVALID_NAMES = new Set([
 
 const JOBS = new Map();
 
+const { createClient } = require("@supabase/supabase-js");
+
 const supabase = (process.env.SUPABASE_URL && process.env.SUPABASE_KEY)
   ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY)
   : null;
