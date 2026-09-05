@@ -813,6 +813,8 @@
                                 const decided = (pair.wins || 0) + (pair.losses || 0);
                                 const winClass = pair.win_percentage >= 50 ? "win-rate-positive" : "win-rate-negative";
                                 winBadge = `<span class="win-rate ${winClass}" title="${pair.wins}W / ${pair.losses}L in ${decided} shared match${decided === 1 ? "" : "es"}">${wp}% WR</span>`;
+                            } else {
+                                winBadge = `<span class="win-rate win-rate-na" title="Win rate only available when the main player is part of this pair">N/A</span>`;
                             }
 
                             return `

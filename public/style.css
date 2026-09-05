@@ -594,6 +594,12 @@ input[type="range"]:focus-visible {
   background: #200d0d;
 }
 
+.win-rate-na {
+  color: var(--muted);
+  border-color: #333;
+  background: transparent;
+}
+
 .groups-list {
   max-height: 320px;
   overflow-y: auto;
