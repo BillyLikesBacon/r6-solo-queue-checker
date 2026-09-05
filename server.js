@@ -411,9 +411,9 @@ function buildPairKey(a, b) {
   return [a, b].sort().join(" <> ");
 }
 
-// Build a matchId → outcome map from the main player's already-loaded match
-// list.  Each match object from /profiles/:uuid/matches includes a
-// player_summary field with the requesting player's outcome ('win'/'loss').
+// Build a matchId → outcome map from any player's already-loaded match list.
+// Each match object from /profiles/:uuid/matches includes a player_summary
+// field with that player's outcome ('win'/'loss').
 function buildOutcomeMap(matches) {
   const map = new Map();
   for (const match of matches) {
@@ -425,24 +425,6 @@ function buildOutcomeMap(matches) {
     }
   }
   return map;
-}
-
-// Derive per-squad-member win/loss counts from the pre-built outcome map.
-// Returns a Map keyed by squad-member name → { wins, losses }.
-function buildWinLossFromOutcomeMap(playerData, mainPlayer, outcomeMap) {
-  const result = new Map();
-  for (const sp of playerData.slice(1)) {
-    let wins = 0;
-    let losses = 0;
-    for (const id of sp.matchSet) {
-      if (!mainPlayer.matchSet.has(id)) continue;
-      const outcome = outcomeMap.get(id);
-      if (outcome === "win") wins++;
-      else if (outcome === "loss") losses++;
-    }
-    result.set(sp.name, { wins, losses });
-  }
-  return result;
 }
 
 function calculatePairwiseFrequencies(allPlayers) {
@@ -594,37 +576,58 @@ async function runScraper(
       };
     });
 
-    // Build outcome map from main player's already-loaded match data — no
-    // extra requests needed, each match object includes player_summary.outcome.
-    const outcomeMap = buildOutcomeMap(mainPlayer.matches);
-    const winLossMap = buildWinLossFromOutcomeMap(playerData, mainPlayer, outcomeMap);
-
-    // Attach wins/losses/win_percentage to each player_frequency entry
-    for (const entry of playerFrequencies) {
-      const wl = winLossMap.get(entry.name) || { wins: 0, losses: 0 };
-      entry.wins = wl.wins;
-      entry.losses = wl.losses;
-      const decided = wl.wins + wl.losses;
-      entry.win_percentage = decided > 0 ? (wl.wins / decided) * 100 : null;
+    // Build an outcome map for every player from their own match list.
+    // Each player's matches already include player_summary.outcome for that player.
+    for (const p of playerData) {
+      p.outcomeMap = buildOutcomeMap(p.matches || []);
     }
 
-    // Attach wins/losses/win_percentage to each pair_frequency entry
-    // (only pairs that include the main player get win/loss data — squad-only
-    // pairs don't have a clear "win" reference player so we leave them null)
+    // Attach wins/losses/win_percentage to each player_frequency entry.
+    // Use player A's outcome map for shared matches with player B — since both
+    // players were in the same match, either outcome map works (they're on the
+    // same team and share the same result).
+    for (const entry of playerFrequencies) {
+      const sp = playerData.find((p) => p.name === entry.name);
+      const ref = playerData[0]; // any player with outcome data works; use first
+      let wins = 0;
+      let losses = 0;
+      for (const id of ref.matchSet) {
+        if (!sp || !sp.matchSet.has(id)) continue;
+        const outcome = ref.outcomeMap.get(id);
+        if (outcome === "win") wins++;
+        else if (outcome === "loss") losses++;
+      }
+      entry.wins = wins;
+      entry.losses = losses;
+      const decided = wins + losses;
+      entry.win_percentage = decided > 0 ? (wins / decided) * 100 : null;
+    }
+
+    // Attach wins/losses/win_percentage to every pair — no special treatment
+    // for any player.  For a given pair (A, B), use A's outcome map to read
+    // results for the matches they shared.
     for (const pair of pairFrequencies) {
-      const mainName = mainPlayer.name;
-      if (pair.players.includes(mainName)) {
-        const otherName = pair.players.find((n) => n !== mainName);
-        const wl = winLossMap.get(otherName) || { wins: 0, losses: 0 };
-        pair.wins = wl.wins;
-        pair.losses = wl.losses;
-        const decided = wl.wins + wl.losses;
-        pair.win_percentage = decided > 0 ? (wl.wins / decided) * 100 : null;
-      } else {
+      const playerA = playerData.find((p) => p.name === pair.players[0]);
+      const playerB = playerData.find((p) => p.name === pair.players[1]);
+      if (!playerA || !playerB) {
         pair.wins = null;
         pair.losses = null;
         pair.win_percentage = null;
+        continue;
       }
+      let wins = 0;
+      let losses = 0;
+      for (const id of playerA.matchSet) {
+        if (!playerB.matchSet.has(id)) continue;
+        // Use whichever player has outcome data for this match
+        const outcome = playerA.outcomeMap.get(id) ?? playerB.outcomeMap.get(id);
+        if (outcome === "win") wins++;
+        else if (outcome === "loss") losses++;
+      }
+      pair.wins = wins;
+      pair.losses = losses;
+      const decided = wins + losses;
+      pair.win_percentage = decided > 0 ? (wins / decided) * 100 : null;
     }
 
     const matchUrls = createMatchUrls(mainPlayer.matches, mainPlayer.uuid);
