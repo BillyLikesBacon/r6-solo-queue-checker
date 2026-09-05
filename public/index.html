@@ -806,11 +806,21 @@
                         ${connections.map(pair => {
                             const otherPlayer = pair.players.find(name => name !== player);
                             const percentage = Number(pair.percentage || 0).toFixed(1);
+
+                            let winBadge = "";
+                            if (pair.win_percentage != null) {
+                                const wp = Number(pair.win_percentage).toFixed(1);
+                                const decided = (pair.wins || 0) + (pair.losses || 0);
+                                const winClass = pair.win_percentage >= 50 ? "win-rate-positive" : "win-rate-negative";
+                                winBadge = `<span class="win-rate ${winClass}" title="${pair.wins}W / ${pair.losses}L in ${decided} shared match${decided === 1 ? "" : "es"}">${wp}% WR</span>`;
+                            }
+
                             return `
                                 <div class="frequency-row${pair.count === 0 ? " empty" : ""}">
                                     <span class="frequency-player">${escapeHtml(otherPlayer)}</span>
                                     <span class="frequency-match-count">${pair.count} / ${pair.total} matches</span>
                                     <strong class="frequency-percentage">${percentage}%</strong>
+                                    ${winBadge}
                                 </div>
                             `;
                         }).join("")}

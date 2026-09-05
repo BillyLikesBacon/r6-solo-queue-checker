@@ -411,6 +411,115 @@ function buildPairKey(a, b) {
   return [a, b].sort().join(" <> ");
 }
 
+// Fetch a single match and return the main player's outcome ('win' or 'loss').
+// Returns null if the match cannot be fetched or the player isn't found in it.
+async function fetchMatchOutcome(matchId, mainPlayerUuid) {
+  const url = `${API_BASE}/matches/${encodeURIComponent(matchId)}`;
+
+  let result;
+  let retries = 0;
+
+  while (retries <= MAX_RETRIES) {
+    try {
+      result = await fetchJson(url, {
+        method: "GET",
+        headers: apiHeaders(),
+      });
+    } catch (err) {
+      return null;
+    }
+
+    const { response, data } = result;
+
+    if (response.status === 429) {
+      const wait = retryAfterSeconds(response, RATE_LIMIT_WAIT);
+      await sleep(wait);
+      retries++;
+      continue;
+    }
+
+    if (!response.ok) {
+      return null;
+    }
+
+    // The match-level player_summaries array has { profile_id, outcome, ... }
+    if (data && Array.isArray(data.player_summaries)) {
+      const entry = data.player_summaries.find(
+        (s) => s.profile_id === mainPlayerUuid
+      );
+      if (entry) {
+        return entry.outcome === "win" ? "win" : "loss";
+      }
+    }
+
+    return null;
+  }
+
+  return null;
+}
+
+// For each squad member, fetch outcomes for every match they shared with the
+// main player.  Returns a Map keyed by squad-member name →
+//   { wins: number, losses: number }.
+async function fetchWinLossForPairs(playerData, mainPlayer, jobId) {
+  // Collect the unique match IDs we need to look up across all squad members.
+  const squadPlayers = playerData.slice(1).filter((p) => p.uuid);
+
+  // Build a map: matchId → Set of squad member names who were in that match
+  const matchToSquad = new Map();
+  for (const sp of squadPlayers) {
+    for (const id of sp.matchSet) {
+      if (mainPlayer.matchSet.has(id)) {
+        if (!matchToSquad.has(id)) matchToSquad.set(id, new Set());
+        matchToSquad.get(id).add(sp.name);
+      }
+    }
+  }
+
+  const uniqueMatchIds = [...matchToSquad.keys()];
+  if (uniqueMatchIds.length === 0) {
+    return new Map();
+  }
+
+  setStatus(jobId, `Fetching win/loss data for ${uniqueMatchIds.length} shared match(es)...`);
+
+  // outcome cache: matchId → 'win' | 'loss' | null
+  const outcomeCache = new Map();
+
+  // Fetch with limited concurrency (reuse MAX_CONCURRENT_PLAYER_SCRAPES).
+  let idx = 0;
+  const total = uniqueMatchIds.length;
+
+  async function fetchNext() {
+    while (idx < total) {
+      const matchId = uniqueMatchIds[idx++];
+      const outcome = await fetchMatchOutcome(matchId, mainPlayer.uuid);
+      outcomeCache.set(matchId, outcome);
+      setStatus(jobId, `Fetching win/loss data... ${outcomeCache.size} / ${total}`);
+      await sleep(randomDelay(MIN_DELAY, MAX_DELAY));
+    }
+  }
+
+  const workers = Math.min(MAX_CONCURRENT_PLAYER_SCRAPES, total);
+  await Promise.all(Array.from({ length: workers }, () => fetchNext()));
+
+  // Aggregate per squad member
+  const result = new Map();
+  for (const sp of squadPlayers) {
+    let wins = 0;
+    let losses = 0;
+    for (const id of sp.matchSet) {
+      if (!mainPlayer.matchSet.has(id)) continue;
+      const outcome = outcomeCache.get(id);
+      if (outcome === "win") wins++;
+      else if (outcome === "loss") losses++;
+    }
+    result.set(sp.name, { wins, losses });
+  }
+
+  return result;
+}
+
 function calculatePairwiseFrequencies(allPlayers) {
   const pairs = [];
 
@@ -546,7 +655,6 @@ async function runScraper(
     const pairFrequencies = calculatePairwiseFrequencies(playerData);
 
     // Individual frequency vs main player (for backwards compat with frontend)
-    const squadNames = names;
     const mainMatchSet = mainPlayer.matchSet;
     const playerFrequencies = playerData.slice(1).map((p) => {
       let count = 0;
@@ -560,6 +668,37 @@ async function runScraper(
         percentage: total > 0 ? (count / total) * 100 : 0,
       };
     });
+
+    // Fetch win/loss outcomes for every shared match
+    const winLossMap = await fetchWinLossForPairs(playerData, mainPlayer, jobId);
+
+    // Attach wins/losses/win_percentage to each player_frequency entry
+    for (const entry of playerFrequencies) {
+      const wl = winLossMap.get(entry.name) || { wins: 0, losses: 0 };
+      entry.wins = wl.wins;
+      entry.losses = wl.losses;
+      const decided = wl.wins + wl.losses;
+      entry.win_percentage = decided > 0 ? (wl.wins / decided) * 100 : null;
+    }
+
+    // Attach wins/losses/win_percentage to each pair_frequency entry
+    // (only pairs that include the main player get win/loss data — squad-only
+    // pairs don't have a clear "win" reference player so we leave them null)
+    for (const pair of pairFrequencies) {
+      const mainName = mainPlayer.name;
+      if (pair.players.includes(mainName)) {
+        const otherName = pair.players.find((n) => n !== mainName);
+        const wl = winLossMap.get(otherName) || { wins: 0, losses: 0 };
+        pair.wins = wl.wins;
+        pair.losses = wl.losses;
+        const decided = wl.wins + wl.losses;
+        pair.win_percentage = decided > 0 ? (wl.wins / decided) * 100 : null;
+      } else {
+        pair.wins = null;
+        pair.losses = null;
+        pair.win_percentage = null;
+      }
+    }
 
     const matchUrls = createMatchUrls(mainPlayer.matches, mainPlayer.uuid);
 
